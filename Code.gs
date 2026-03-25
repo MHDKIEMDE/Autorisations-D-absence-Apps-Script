@@ -178,22 +178,19 @@ function onEdit(e) {
   const ancienneValeur = (e.oldValue !== undefined ? e.oldValue : '').toString();
   const statutGlobal   = sheet.getRange(row, CONFIG.COL.STATUT_GLOBAL).getValue().toString();
 
-  const decisionsPrises = ['Approuvé', 'Rejeté', 'Rejeté automatiquement'];
-  const decisionDejaPrise =
-    decisionsPrises.includes(ancienneValeur) ||
-    decisionsPrises.includes(statutGlobal);
-
-  if (decisionDejaPrise) {
+  // Bloquer si aucune demande active sur cette ligne
+  if (statutGlobal !== 'En cours') {
     e.range.setValue(ancienneValeur);
+    const motif = statutGlobal
+      ? 'La décision pour cette demande est déjà enregistrée (' + statutGlobal + ').'
+      : 'Aucune demande active sur cette ligne.';
     SpreadsheetApp.getActiveSpreadsheet().toast(
-      'La décision pour cette demande est déjà enregistrée (' +
-      (ancienneValeur || statutGlobal) +
-      '). Aucune modification n\'est autorisée.',
+      motif + ' Aucune modification n\'est autorisée.',
       '⚠️ Modification refusée',
       10
     );
     log('WARN', 'onEdit',
-      `Modification annulée - ligne ${row}, col ${col}, ancienne valeur: "${ancienneValeur}"`);
+      `Modification annulée - ligne ${row}, col ${col}, statut: "${statutGlobal || 'vide'}"`);
   }
 }
 
