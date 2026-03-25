@@ -118,6 +118,13 @@ function onFormSubmit(e) {
       ecrireColonne(sheet, row, CONFIG.COL.AVIS_RH,   'En attente');
       ecrireColonne(sheet, row, CONFIG.COL.AVIS_PRES, 'En attente');
       premierNiveau = 'RH';
+    } else if (workflow === 'PRES_RH') {
+      // Présidence valide en premier, RH est validateur final
+      ecrireColonne(sheet, row, CONFIG.COL.AVIS_SUP,  'Approuvé');   // niveau sauté
+      ecrireColonne(sheet, row, CONFIG.COL.TOKEN_SUP, 'INVALIDE_' + tokenSup);
+      ecrireColonne(sheet, row, CONFIG.COL.AVIS_RH,   'En attente'); // validateur final
+      ecrireColonne(sheet, row, CONFIG.COL.AVIS_PRES, 'En attente'); // premier validateur
+      premierNiveau = 'Presidence';
     } else if (workflow === 'PRES') {
       ecrireColonne(sheet, row, CONFIG.COL.AVIS_SUP,  'Approuvé');   // niveau sauté
       ecrireColonne(sheet, row, CONFIG.COL.TOKEN_SUP, 'INVALIDE_' + tokenSup);

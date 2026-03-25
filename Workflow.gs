@@ -39,6 +39,10 @@ function traiterDecision(token, decision, motif) {
   const sheet   = getSheetReponses();
   const demande = lireDemande(sheet, row);
 
+  // Détecter le workflow depuis le service (permet de gérer PRES_RH)
+  const service  = sheet.getRange(row, CONFIG.COL.SERVICE).getValue().toString().trim();
+  const workflow = ((CONFIG.SERVICE_SUP_MAP || {})[service] || {}).workflow || 'SUP_RH_PRES';
+
   // ----------------------------------------------------------
   // 2. Vérifier que ce niveau est bien "En attente"
   //    (protection anti double-clic / double envoi)
@@ -92,7 +96,25 @@ function traiterDecision(token, decision, motif) {
       };
 
     } else if (niveau === 'RH') {
-      // Passer à la Présidence — PAS de notification à l'employé
+      const avisPres = sheet.getRange(row, CONFIG.COL.AVIS_PRES).getValue().toString();
+
+      if (workflow === 'PRES_RH' && avisPres === 'Approuvé') {
+        // PRES_RH : RH est le validateur final → clôturer
+        ecrireColonne(sheet, row, CONFIG.COL.TOKEN_RH, 'UTILISE_' + token);
+        cloturerDemande(sheet, row, 'Approuvé', '');
+        const demandeApprouvee = lireDemande(sheet, row);
+        const { dossierID, docID } = creerDossierEtDoc(demandeApprouvee);
+        ecrireColonneLien(sheet, row, CONFIG.COL.DRIVE_DOSSIER, dossierID,
+          `https://drive.google.com/drive/folders/${dossierID}`);
+        ecrireColonneLien(sheet, row, CONFIG.COL.DRIVE_DOC, docID,
+          `https://docs.google.com/document/d/${docID}/edit`);
+        mettreAJourDoc(lireDemande(sheet, row));
+        envoyerConfirmationFinaleEmploye(lireDemande(sheet, row), 'Approuvé', '');
+        log('OK', 'Workflow', `Demande ${demande.idDemande} clôturée : Approuvé (RH final - PRES_RH)`);
+        return { success: true, message: "Demande approuvée. L'employé a été notifié." };
+      }
+
+      // Workflow standard : passer à la Présidence
       ecrireColonne(sheet, row, CONFIG.COL.AVIS_PRES, 'En attente');
       const tokenPres = sheet.getRange(row, CONFIG.COL.TOKEN_PRES).getValue();
       envoyerNotificationValidateur(lireDemande(sheet, row), 'Presidence', tokenPres);
@@ -102,13 +124,20 @@ function traiterDecision(token, decision, motif) {
       };
 
     } else if (niveau === 'Presidence') {
-      // Invalider le token pour éviter que le 2e contact Présidence revalide
+      const avisRH = sheet.getRange(row, CONFIG.COL.AVIS_RH).getValue().toString();
+
+      if (workflow === 'PRES_RH' && avisRH === 'En attente') {
+        // PRES_RH : passer à la RH (validateur final) — PAS de notification à l'employé
+        ecrireColonne(sheet, row, CONFIG.COL.TOKEN_PRES, 'UTILISE_' + token);
+        const tokenRH = sheet.getRange(row, CONFIG.COL.TOKEN_RH).getValue();
+        envoyerNotificationValidateur(lireDemande(sheet, row), 'RH', tokenRH);
+        log('OK', 'Workflow', `Demande ${demande.idDemande} approuvée par Présidence — RH notifié (PRES_RH)`);
+        return { success: true, message: 'Demande approuvée par la Présidence. Le service RH a été notifié.' };
+      }
+
+      // Workflow standard (PRES ou RH_PRES) : clôturer
       ecrireColonne(sheet, row, CONFIG.COL.TOKEN_PRES, 'UTILISE_' + token);
-
-      // Clôturer la demande
       cloturerDemande(sheet, row, 'Approuvé', '');
-
-      // Créer le dossier Drive + doc uniquement à l'approbation finale
       const demandeApprouvee = lireDemande(sheet, row);
       const { dossierID, docID } = creerDossierEtDoc(demandeApprouvee);
       ecrireColonneLien(sheet, row, CONFIG.COL.DRIVE_DOSSIER, dossierID,
@@ -116,15 +145,9 @@ function traiterDecision(token, decision, motif) {
       ecrireColonneLien(sheet, row, CONFIG.COL.DRIVE_DOC, docID,
         `https://docs.google.com/document/d/${docID}/edit`);
       mettreAJourDoc(lireDemande(sheet, row));
-
-      // ✅ Notifier l'employé — approbation finale uniquement ici
       envoyerConfirmationFinaleEmploye(lireDemande(sheet, row), 'Approuvé', '');
-
       log('OK', 'Workflow', `Demande ${demande.idDemande} clôturée : Approuvé`);
-      return {
-        success: true,
-        message: "Demande approuvée. L'employé a été notifié."
-      };
+      return { success: true, message: "Demande approuvée. L'employé a été notifié." };
     }
   }
 
@@ -137,7 +160,7 @@ function traiterDecision(token, decision, motif) {
     ecrireColonne(sheet, row, CONFIG.COL.COMMENTAIRE, motif.trim());
 
     // Invalider tous les tokens des niveaux suivants (ils ne seront jamais utilisés)
-    invaliderTokensRestants(sheet, row, niveau);
+    invaliderTokensRestants(sheet, row, niveau, workflow);
 
     // Clôturer la demande
     cloturerDemande(sheet, row, 'Rejeté', motif.trim());
@@ -250,27 +273,49 @@ function traiterDecisionManuelle(e) {
       return;
     }
 
+    // Détecter le workflow du service (nécessaire pour les gardes et les branches d'approbation)
+    const service  = sheet.getRange(row, CONFIG.COL.SERVICE).getValue().toString().trim();
+    const workflow = ((CONFIG.SERVICE_SUP_MAP || {})[service] || {}).workflow || 'SUP_RH_PRES';
+
     // Garde 4 : respect de l'ordre hiérarchique
-    if (niveau === 'RH') {
-      const avisSup = sheet.getRange(row, CONFIG.COL.AVIS_SUP).getValue().toString();
-      if (avisSup !== 'Approuvé') {
-        e.range.setValue(ancienneValeur || 'En attente');
-        SpreadsheetApp.getActiveSpreadsheet().toast(
-          'Le supérieur hiérarchique doit d\'abord approuver cette demande.',
-          '⚠️ Ordre de validation', 8
-        );
-        return;
+    if (workflow === 'PRES_RH') {
+      // Ordre PRES_RH : Presidence → RH (final)
+      // • Presidence peut valider dès que AVIS_SUP = 'Approuvé' (niveau sauté — toujours OK)
+      // • RH ne peut valider que si Presidence a déjà approuvé
+      if (niveau === 'RH') {
+        const avisPres = sheet.getRange(row, CONFIG.COL.AVIS_PRES).getValue().toString();
+        if (avisPres !== 'Approuvé') {
+          e.range.setValue(ancienneValeur || 'En attente');
+          SpreadsheetApp.getActiveSpreadsheet().toast(
+            'La Présidence doit d\'abord approuver cette demande.',
+            '⚠️ Ordre de validation', 8
+          );
+          return;
+        }
       }
-    }
-    if (niveau === 'Presidence') {
-      const avisRH = sheet.getRange(row, CONFIG.COL.AVIS_RH).getValue().toString();
-      if (avisRH !== 'Approuvé') {
-        e.range.setValue(ancienneValeur || 'En attente');
-        SpreadsheetApp.getActiveSpreadsheet().toast(
-          'Le service RH doit d\'abord approuver cette demande.',
-          '⚠️ Ordre de validation', 8
-        );
-        return;
+    } else {
+      // Ordre standard : Superieur → RH → Presidence
+      if (niveau === 'RH') {
+        const avisSup = sheet.getRange(row, CONFIG.COL.AVIS_SUP).getValue().toString();
+        if (avisSup !== 'Approuvé') {
+          e.range.setValue(ancienneValeur || 'En attente');
+          SpreadsheetApp.getActiveSpreadsheet().toast(
+            'Le supérieur hiérarchique doit d\'abord approuver cette demande.',
+            '⚠️ Ordre de validation', 8
+          );
+          return;
+        }
+      }
+      if (niveau === 'Presidence') {
+        const avisRH = sheet.getRange(row, CONFIG.COL.AVIS_RH).getValue().toString();
+        if (avisRH !== 'Approuvé') {
+          e.range.setValue(ancienneValeur || 'En attente');
+          SpreadsheetApp.getActiveSpreadsheet().toast(
+            'Le service RH doit d\'abord approuver cette demande.',
+            '⚠️ Ordre de validation', 8
+          );
+          return;
+        }
       }
     }
 
@@ -295,28 +340,61 @@ function traiterDecisionManuelle(e) {
         );
 
       } else if (niveau === 'RH') {
-        const tokenPres = sheet.getRange(row, CONFIG.COL.TOKEN_PRES).getValue();
-        envoyerNotificationValidateur(lireDemande(sheet, row), 'Presidence', tokenPres);
-        SpreadsheetApp.getActiveSpreadsheet().toast(
-          'Décision enregistrée. La Présidence a été notifiée par email.',
-          '✅ Approuvé', 6
-        );
+        const avisPres = sheet.getRange(row, CONFIG.COL.AVIS_PRES).getValue().toString();
+        if (workflow === 'PRES_RH' && avisPres === 'Approuvé') {
+          // PRES_RH : RH est le validateur final → clôturer
+          cloturerDemande(sheet, row, 'Approuvé', '');
+          const demandeApprouvee = lireDemande(sheet, row);
+          const { dossierID, docID } = creerDossierEtDoc(demandeApprouvee);
+          ecrireColonneLien(sheet, row, CONFIG.COL.DRIVE_DOSSIER, dossierID,
+            `https://drive.google.com/drive/folders/${dossierID}`);
+          ecrireColonneLien(sheet, row, CONFIG.COL.DRIVE_DOC, docID,
+            `https://docs.google.com/document/d/${docID}/edit`);
+          mettreAJourDoc(lireDemande(sheet, row));
+          envoyerConfirmationFinaleEmploye(lireDemande(sheet, row), 'Approuvé', '');
+          log('OK', 'traiterDecisionManuelle', `Demande ${demande.idDemande} clôturée : Approuvé (RH final - PRES_RH)`);
+          SpreadsheetApp.getActiveSpreadsheet().toast(
+            'Demande approuvée et clôturée. L\'employé a été notifié.',
+            '✅ Approuvé — Dossier clôturé', 10
+          );
+        } else {
+          // Workflow standard : passer à la Présidence
+          const tokenPres = sheet.getRange(row, CONFIG.COL.TOKEN_PRES).getValue();
+          envoyerNotificationValidateur(lireDemande(sheet, row), 'Presidence', tokenPres);
+          SpreadsheetApp.getActiveSpreadsheet().toast(
+            'Décision enregistrée. La Présidence a été notifiée par email.',
+            '✅ Approuvé', 6
+          );
+        }
 
       } else if (niveau === 'Presidence') {
-        cloturerDemande(sheet, row, 'Approuvé', '');
-        const demandeApprouvee = lireDemande(sheet, row);
-        const { dossierID, docID } = creerDossierEtDoc(demandeApprouvee);
-        ecrireColonneLien(sheet, row, CONFIG.COL.DRIVE_DOSSIER, dossierID,
-          `https://drive.google.com/drive/folders/${dossierID}`);
-        ecrireColonneLien(sheet, row, CONFIG.COL.DRIVE_DOC, docID,
-          `https://docs.google.com/document/d/${docID}/edit`);
-        mettreAJourDoc(lireDemande(sheet, row));
-        envoyerConfirmationFinaleEmploye(lireDemande(sheet, row), 'Approuvé', '');
-        log('OK', 'traiterDecisionManuelle', `Demande ${demande.idDemande} clôturée : Approuvé`);
-        SpreadsheetApp.getActiveSpreadsheet().toast(
-          'Demande approuvée et clôturée. L\'employé a été notifié.',
-          '✅ Approuvé — Dossier clôturé', 10
-        );
+        const avisRH = sheet.getRange(row, CONFIG.COL.AVIS_RH).getValue().toString();
+        if (workflow === 'PRES_RH' && avisRH === 'En attente') {
+          // PRES_RH : passer à la RH (validateur final) — PAS de notification à l'employé
+          const tokenRH = sheet.getRange(row, CONFIG.COL.TOKEN_RH).getValue();
+          envoyerNotificationValidateur(lireDemande(sheet, row), 'RH', tokenRH);
+          log('OK', 'traiterDecisionManuelle', `Demande ${demande.idDemande} approuvée par Présidence — RH notifié (PRES_RH)`);
+          SpreadsheetApp.getActiveSpreadsheet().toast(
+            'Décision enregistrée. Le service RH a été notifié par email.',
+            '✅ Approuvé', 6
+          );
+        } else {
+          // Workflow standard : clôturer
+          cloturerDemande(sheet, row, 'Approuvé', '');
+          const demandeApprouvee = lireDemande(sheet, row);
+          const { dossierID, docID } = creerDossierEtDoc(demandeApprouvee);
+          ecrireColonneLien(sheet, row, CONFIG.COL.DRIVE_DOSSIER, dossierID,
+            `https://drive.google.com/drive/folders/${dossierID}`);
+          ecrireColonneLien(sheet, row, CONFIG.COL.DRIVE_DOC, docID,
+            `https://docs.google.com/document/d/${docID}/edit`);
+          mettreAJourDoc(lireDemande(sheet, row));
+          envoyerConfirmationFinaleEmploye(lireDemande(sheet, row), 'Approuvé', '');
+          log('OK', 'traiterDecisionManuelle', `Demande ${demande.idDemande} clôturée : Approuvé`);
+          SpreadsheetApp.getActiveSpreadsheet().toast(
+            'Demande approuvée et clôturée. L\'employé a été notifié.',
+            '✅ Approuvé — Dossier clôturé', 10
+          );
+        }
       }
 
     // ----------------------------------------------------------
@@ -338,7 +416,7 @@ function traiterDecisionManuelle(e) {
         return;
       }
 
-      invaliderTokensRestants(sheet, row, niveau);
+      invaliderTokensRestants(sheet, row, niveau, workflow);
       cloturerDemande(sheet, row, 'Rejeté', motif);
       envoyerConfirmationFinaleEmploye(lireDemande(sheet, row), 'Rejeté', motif);
 
@@ -370,19 +448,26 @@ function traiterDecisionManuelle(e) {
  * Invalide les tokens des niveaux situés APRÈS le niveau de rejet.
  * Cela empêche les validateurs suivants d'utiliser un lien devenu caduc.
  *
- * Ordre : Superieur (0) → RH (1) → Presidence (2)
+ * Ordre standard  : Superieur → RH → Presidence
+ * Ordre PRES_RH   : Superieur → Presidence → RH  (RH est validateur final)
  *
  * @param {Sheet}  sheet       - Sheet des réponses
  * @param {number} row         - Numéro de ligne
  * @param {string} niveauRejet - Niveau qui a rejeté ('Superieur'|'RH'|'Presidence')
+ * @param {string} [workflow]  - Workflow du service (optionnel, défaut SUP_RH_PRES)
  */
-function invaliderTokensRestants(sheet, row, niveauRejet) {
-  const ordre     = ['Superieur', 'RH', 'Presidence'];
-  const colTokens = [
-    CONFIG.COL.TOKEN_SUP,
-    CONFIG.COL.TOKEN_RH,
-    CONFIG.COL.TOKEN_PRES
-  ];
+function invaliderTokensRestants(sheet, row, niveauRejet, workflow) {
+  // Pour PRES_RH : Presidence valide avant RH → adapter l'ordre des tokens
+  const ordre = (workflow === 'PRES_RH')
+    ? ['Superieur', 'Presidence', 'RH']
+    : ['Superieur', 'RH', 'Presidence'];
+
+  const tokenParNiveau = {
+    Superieur:  CONFIG.COL.TOKEN_SUP,
+    RH:         CONFIG.COL.TOKEN_RH,
+    Presidence: CONFIG.COL.TOKEN_PRES
+  };
+  const colTokens = ordre.map(n => tokenParNiveau[n]);
 
   const idx = ordre.indexOf(niveauRejet);
 

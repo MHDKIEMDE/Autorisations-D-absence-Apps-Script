@@ -108,7 +108,8 @@ const CONFIG = {
   //     workflow = circuit de validation :
   //       'SUP_RH_PRES' — Supérieur → RH → Présidence  (circuit complet)
   //       'RH_PRES'     — RH → Présidence              (pas de supérieur)
-  //       'PRES'        — Présidence directement        (ex : RH)
+  //       'PRES'        — Présidence directement        (validateur final unique)
+  //       'PRES_RH'     — Présidence → RH              (RH est validateur final, ex : Administration)
   //
   //     À chaque soumission, le script lit le service, résout l'email
   //     du supérieur et initialise automatiquement les niveaux selon
@@ -122,9 +123,13 @@ const CONFIG = {
     'CDP':                   { sup: 'REMPLACER_SUP_CDP',       workflow: 'SUP_RH_PRES' },  // Communication pour le Développement
     'CD':                    { sup: 'REMPLACER_SUP_CD',        workflow: 'SUP_RH_PRES' },  // Communication pour le Digital
     'Techniciens CDP':       { sup: 'REMPLACER_SUP_TECH_CDP',  workflow: 'SUP_RH_PRES' },  // Techniciens CDP — Massaka SAS
-    'Comptabilité':          { sup: null,                      workflow: 'RH_PRES'     },  // Pas de supérieur → RH → Présidence
-    'Marketing':             { sup: null,                      workflow: 'RH_PRES'     },  // Pas de supérieur → RH → Présidence
-    'RH':                    { sup: null,                      workflow: 'PRES'        },  // Répond directement à la Présidence
+    'Administration':        { sup: null,                      workflow: 'PRES_RH'     },  // Comptabilité, Marketing, RH → Présidence puis RH (final)
+
+    // ── Chefs de section ─────────────────────────────────────────────────────
+    // Même schéma que Administration : Présidence valide en premier, RH clôture.
+    // Ajouter une entrée par section dès que les intitulés exacts du formulaire sont connus.
+    // Exemple : 'Chef de section — Élevage': { sup: null, workflow: 'PRES_RH' },
+    'Chef de section':       { sup: null,                      workflow: 'PRES_RH'     },  // Chef de section → Présidence puis RH (final)
 
     // ── Agribusiness TV ──────────────────────────────────────────────────────
     'Editoriale':            { sup: 'REMPLACER_SUP_EDITORIALE',  workflow: 'SUP_RH_PRES' },  // Service Éditorial
