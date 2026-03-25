@@ -28,22 +28,19 @@ const CONFIG = {
   //     Mettre à jour chaque année.
   // ----------------------------------------------------------
   JOURS_FERIES: [
-    // — Fêtes civiles et chrétiennes —
+    // — Fêtes fixes —
     '2026-01-01',  // Jour de l'An
-    '2026-04-03',  // Vendredi Saint
-    '2026-04-04',  // Jour de l'Indépendance (Sénégal)
-    '2026-04-06',  // Lundi de Pâques
+    '2026-03-08',  // Journée internationale des droits de la femme
     '2026-05-01',  // Fête du Travail
-    '2026-05-14',  // Ascension
-    '2026-05-25',  // Lundi de Pentecôte
+    '2026-05-15',  // Journée des coutumes et traditions
     '2026-08-15',  // Assomption
-    '2026-11-01',  // Toussaint
+    '2026-12-11',  // Fête nationale (Proclamation de la République)
     '2026-12-25',  // Noël
-    // — Fêtes islamiques 2026 (dates approximatives — à confirmer selon croissant de lune) —
-    '2026-03-30',  // Korité / Aïd el-Fitr (fin du Ramadan 1447)
-    '2026-06-06',  // Tabaski / Aïd el-Adha (10 Dhou al-Hijja 1447)
-    '2026-07-26',  // Tamkharit / Achoura (10 Mouharram 1448)
-    '2026-10-04'   // Maouloud (12 Rabi' al-Awwal 1448)
+    // — Fêtes à dates mobiles 2026 (à confirmer selon croissant de lune pour les fêtes islamiques) —
+    '2026-05-14',  // Ascension (40 jours après Pâques, 5 avril 2026)
+    '2026-03-20',  // Aïd el-Fitr / Korité (1er Shawwal 1447)
+    '2026-05-26',  // Aïd el-Kebir / Tabaski (10 Dhou al-Hijja 1447)
+    '2026-09-24'   // Maouloud (12 Rabi' al-Awwal 1448 ≈ 24/09)
   ],
 
   // ----------------------------------------------------------
@@ -75,10 +72,11 @@ const CONFIG = {
   // ----------------------------------------------------------
   PRESIDENCE_MAP: {
 
-    // ── Massaka SAS ──────────────────────────────────────────────────────────
-    // 'sup1@massaka.com': {
-    //   email:         'massaka@president.com',
-    //   nom:           'REMPLACER — Président Massaka SAS',
+    // ── Entreprise 1 ─────────────────────────────────────────────────────────
+    // 'sup1@votreorg.com': {
+    //   email:         'president@votreorg.com',
+    //   nom:           'REMPLACER — Président Entreprise 1',
+    //   nomOrg:        'Entreprise 1',              // ← nom affiché dans les emails
     //   couleur:       '#016579',    // fond entête
     //   couleurBadge:  '#f8c542',   // badge
     //   couleurAccent: '#016579',   // boutons / bordures
@@ -89,9 +87,10 @@ const CONFIG = {
     // ── Agribusiness TV ──────────────────────────────────────────────────────
     // Couleurs secondaires : #B9EB57 (vert) · #F4EA37 (jaune) · #FF774D (orange)
     // Typographie : Proxima Nova
-    // 'sup2@massaka.com': {
-    //   email:         'agribusiness@president.info',
+    // 'sup2@votreorg.com': {
+    //   email:         'president@agribusinesstv.com',
     //   nom:           'REMPLACER — Président Agribusiness TV',
+    //   nomOrg:        'Agribusiness TV',           // ← nom affiché dans les emails
     //   couleur:       '#FF774D',    // fond entête (orange)
     //   couleurBadge:  '#F4EA37',   // badge (jaune)
     //   couleurAccent: '#B9EB57',   // boutons / bordures (vert)

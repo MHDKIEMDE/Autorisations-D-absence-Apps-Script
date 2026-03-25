@@ -108,15 +108,14 @@ function traiterDecision(token, decision, motif) {
       // Clôturer la demande
       cloturerDemande(sheet, row, 'Approuvé', '');
 
-      // Mettre à jour le Google Doc avec les avis finaux
+      // Créer le dossier Drive + doc uniquement à l'approbation finale
+      const demandeApprouvee = lireDemande(sheet, row);
+      const { dossierID, docID } = creerDossierEtDoc(demandeApprouvee);
+      ecrireColonneLien(sheet, row, CONFIG.COL.DRIVE_DOSSIER, dossierID,
+        `https://drive.google.com/drive/folders/${dossierID}`);
+      ecrireColonneLien(sheet, row, CONFIG.COL.DRIVE_DOC, docID,
+        `https://docs.google.com/document/d/${docID}/edit`);
       mettreAJourDoc(lireDemande(sheet, row));
-
-      // Déplacer le dossier Drive vers "Accepté"
-      if (demande.driveDossierID) {
-        deplacerVersDossierStatut(demande.driveDossierID, 'Accepté');
-      } else {
-        log('WARN', 'Workflow', `driveDossierID absent - déplacement Drive ignoré pour ${demande.idDemande}`);
-      }
 
       // ✅ Notifier l'employé — approbation finale uniquement ici
       envoyerConfirmationFinaleEmploye(lireDemande(sheet, row), 'Approuvé', '');
@@ -142,16 +141,6 @@ function traiterDecision(token, decision, motif) {
 
     // Clôturer la demande
     cloturerDemande(sheet, row, 'Rejeté', motif.trim());
-
-    // Mettre à jour le Google Doc
-    mettreAJourDoc(lireDemande(sheet, row));
-
-    // Déplacer le dossier Drive vers "Rejeté"
-    if (demande.driveDossierID) {
-      deplacerVersDossierStatut(demande.driveDossierID, 'Rejeté');
-    } else {
-      log('WARN', 'Workflow', `driveDossierID absent - déplacement Drive ignoré pour ${demande.idDemande}`);
-    }
 
     // ✅ Notifier l'employé — rejet à tout niveau
     envoyerConfirmationFinaleEmploye(lireDemande(sheet, row), 'Rejeté', motif.trim());
@@ -315,13 +304,13 @@ function traiterDecisionManuelle(e) {
 
       } else if (niveau === 'Presidence') {
         cloturerDemande(sheet, row, 'Approuvé', '');
+        const demandeApprouvee = lireDemande(sheet, row);
+        const { dossierID, docID } = creerDossierEtDoc(demandeApprouvee);
+        ecrireColonneLien(sheet, row, CONFIG.COL.DRIVE_DOSSIER, dossierID,
+          `https://drive.google.com/drive/folders/${dossierID}`);
+        ecrireColonneLien(sheet, row, CONFIG.COL.DRIVE_DOC, docID,
+          `https://docs.google.com/document/d/${docID}/edit`);
         mettreAJourDoc(lireDemande(sheet, row));
-        if (demande.driveDossierID) {
-          deplacerVersDossierStatut(demande.driveDossierID, 'Accepté');
-        } else {
-          log('WARN', 'traiterDecisionManuelle',
-            `driveDossierID absent ligne ${row} — déplacement Drive ignoré`);
-        }
         envoyerConfirmationFinaleEmploye(lireDemande(sheet, row), 'Approuvé', '');
         log('OK', 'traiterDecisionManuelle', `Demande ${demande.idDemande} clôturée : Approuvé`);
         SpreadsheetApp.getActiveSpreadsheet().toast(
@@ -349,23 +338,8 @@ function traiterDecisionManuelle(e) {
         return;
       }
 
-      // Marquer les niveaux suivants comme non applicables
-      const colonnesNonApplicables = {
-        'Superieur':  [CONFIG.COL.AVIS_RH, CONFIG.COL.AVIS_PRES],
-        'RH':         [CONFIG.COL.AVIS_PRES],
-        'Presidence': []
-      }[niveau];
-      colonnesNonApplicables.forEach(c => ecrireColonne(sheet, row, c, '—'));
-
       invaliderTokensRestants(sheet, row, niveau);
       cloturerDemande(sheet, row, 'Rejeté', motif);
-      mettreAJourDoc(lireDemande(sheet, row));
-      if (demande.driveDossierID) {
-        deplacerVersDossierStatut(demande.driveDossierID, 'Rejeté');
-      } else {
-        log('WARN', 'traiterDecisionManuelle',
-          `driveDossierID absent ligne ${row} — déplacement Drive ignoré`);
-      }
       envoyerConfirmationFinaleEmploye(lireDemande(sheet, row), 'Rejeté', motif);
 
       log('OK', 'traiterDecisionManuelle',

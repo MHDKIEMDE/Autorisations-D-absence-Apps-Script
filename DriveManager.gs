@@ -3,11 +3,9 @@
 // ============================================================
 // Structure des dossiers Drive :
 //   Racine/
-//     En attente/
+//     Accepté/
 //       [MSK-2026-0001 - Nom Prenom]/  ← dossier de la demande
 //         [MSK-2026-0001 - Nom Prenom] ← Google Doc
-//     Accepté/
-//     Rejeté/
 // ============================================================
 
 // Utilitaire : retourne le sous-dossier par nom, le crée si absent
@@ -22,15 +20,10 @@ function creerDossierEtDoc(demande) {
 
   const dossierRacine = DriveApp.getFolderById(CONFIG.DRIVE_DOSSIER_RACINE);
 
-  // S'assurer que les 3 sous-dossiers statut existent dans la racine
-  ['En attente', 'Accepté', 'Rejeté'].forEach(nom => {
-    getOuCreerSousDossier(dossierRacine, nom);
-  });
-
-  // Dossier de la demande directement dans "En attente"
-  const dossierEnAttente = getOuCreerSousDossier(dossierRacine, 'En attente');
-  const nomDossier       = `${demande.idDemande} - ${demande.nomComplet}`;
-  const dossierDemande   = dossierEnAttente.createFolder(nomDossier);
+  // Dossier de la demande directement dans "Accepté"
+  const dossierAccepte = getOuCreerSousDossier(dossierRacine, 'Accepté');
+  const nomDossier     = `${demande.idDemande} - ${demande.nomComplet}`;
+  const dossierDemande = dossierAccepte.createFolder(nomDossier);
   log('INFO', 'DriveManager', `Dossier cree : ${dossierDemande.getId()} - ${nomDossier}`);
 
   // Copier le template

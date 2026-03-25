@@ -1,4 +1,4 @@
-# Système d'autorisation d'absence — Massaka
+# Système d'autorisation d'absence — Entreprise 1
 
 Système complet de gestion des demandes d'absence sur Google Apps Script.
 Les employés soumettent via un Google Form ; les validateurs approuvent ou rejettent soit **directement dans le Google Sheet**, soit via **des liens email** (les deux modes coexistent).
@@ -34,10 +34,7 @@ Google Form
     ▼
 Google Sheet ──► Apps Script (onFormSubmit)
     │                  │
-    │          ┌───────┴────────┐
-    │          │                │
-    │     Drive (dossier     Email (accusé
-    │     + doc créés)       réception employé)
+    │          Email (accusé réception employé)
     │
     ├── Validation manuelle (Sheet)          ◄── validateur édite col Q/R/S
     │       │
@@ -51,8 +48,12 @@ Google Sheet ──► Apps Script (onFormSubmit)
             │
      ┌──────┴──────┐
      │             │
-  Drive mis    Email final
-  à jour       employé
+  Approuvé      Rejeté
+  Présidence :  ──► Email final employé
+  Drive créé    (pas de dossier Drive)
+  + doc PDF
+  joint à
+  l'email final
 ```
 
 **Cascade de validation :** Supérieur → RH → Présidence
@@ -80,7 +81,7 @@ L'employé est notifié **uniquement** en cas de rejet (tout niveau) ou d'approb
 
 - Compte **Google Workspace** (requis pour GmailApp, Drive, DocumentApp)
 - Un **Google Form** lié au Google Sheet
-- Un **dossier Google Drive** racine avec 3 sous-dossiers : `En attente`, `Accepté`, `Rejeté`
+- Un **dossier Google Drive** racine avec 1 sous-dossier : `Accepté`
 - Un **dossier template** Drive contenant **un seul** Google Doc (le modèle de document officiel)
 - Droits d'administrateur sur le script pour installer les triggers
 
@@ -92,9 +93,7 @@ L'employé est notifié **uniquement** en cas de rejet (tout niveau) ou d'approb
 
 ```
 Dossier racine/
-├── En attente/
-├── Accepté/
-└── Rejeté/
+└── Accepté/   ← créé automatiquement si absent, inutile de le créer manuellement
 
 Dossier template/
 └── [Votre modèle Google Doc]   ← un seul fichier
@@ -208,13 +207,15 @@ Si `initialiserProjet()` a déjà été exécuté, ce trigger est déjà actif.
 ### Étape 7 — Tester
 
 Soumettre une demande test via le formulaire et vérifier :
+
 - [ ] Colonnes U–AC remplies automatiquement dans le Sheet
 - [ ] Email accusé de réception reçu par l'employé
 - [ ] Email notification reçu par le supérieur (avec les deux options : Sheet et lien)
-- [ ] Dossier et doc créés dans Drive → `En attente/`
+- [ ] **Aucun** dossier Drive créé à cette étape (création uniquement à l'approbation finale)
 - [ ] Validation manuelle dans le Sheet déclenche les emails suivants
 - [ ] Validation par lien email fonctionne
-- [ ] À la décision finale, doc mis à jour et dossier déplacé vers `Accepté/` ou `Rejeté/`
+- [ ] À l'approbation Présidence : dossier + doc créés dans Drive → `Accepté/`, PDF joint à l'email employé
+- [ ] En cas de rejet (tout niveau) : email envoyé à l'employé, aucun dossier Drive créé
 
 ---
 
@@ -234,15 +235,15 @@ Soumettre une demande test via le formulaire et vérifier :
 | `DRIVE_DOSSIER_RACINE` | ID du dossier racine Drive | À renseigner |
 | `DRIVE_DOSSIER_TEMPLATE` | ID du dossier template | À renseigner |
 | `WEBAPP_URL` | URL de la Web App déployée | À renseigner après déploiement |
-| `NOM_ORG` | Nom affiché dans les emails | `Massaka` |
+| `NOM_ORG` | Nom affiché dans les emails | `Entreprise 1` |
 | `JOURS_FERIES` | Liste des jours fériés `['YYYY-MM-DD']` | Jours fériés 2026 |
 
 ### Ajouter un supérieur hiérarchique
 
 ```javascript
 SUP_NOMS: {
-  'jean.dupont@massaka.com':  'Jean Dupont — Directeur Financier',
-  'marie.fall@massaka.com':   'Marie Fall — Chef de Projet',
+  'sup1@votreorg.com':  'Prénom Nom — Directeur Financier',
+  'sup2@votreorg.com':  'Prénom Nom — Chef de Projet',
 }
 ```
 
@@ -291,21 +292,20 @@ Les colonnes **A–P** sont remplies par le formulaire. Les colonnes **Q–AC** 
 
 ## 7. Structure Google Drive
 
-```
+```text
 Dossier Racine/
-├── En attente/
-│   ├── ABS-2026-0001 - Fall Mamadou/
-│   │   └── ABS-2026-0001 - Fall Mamadou  ← Google Doc
-│   └── ABS-2026-0002 - Diop Fatou/
-│       └── ABS-2026-0002 - Diop Fatou
-├── Accepté/
-│   └── [dossiers des demandes approuvées]
-└── Rejeté/
-    └── [dossiers des demandes rejetées]
+└── Accepté/
+    ├── MSK-2026-0001 - Nom Employé 1/
+    │   └── MSK-2026-0001 - Nom Employé 1  ← Google Doc
+    └── MSK-2026-0002 - Nom Employé 2/
+        └── MSK-2026-0002 - Nom Employé 2
 
 Dossier Template/
 └── [Modèle document officiel]  ← 1 seul fichier
 ```
+
+> Le dossier et le Google Doc sont créés **uniquement lors de l'approbation finale par la Présidence**.
+> Les demandes rejetées n'ont aucune trace dans Drive — le Google Sheet conserve l'historique complet.
 
 ---
 
@@ -313,38 +313,35 @@ Dossier Template/
 
 ### Flux normal
 
-```
+```text
 Soumission formulaire
         │
         ▼
   Règle délai ? ──── < 3 jours ouvrables ──► Rejeté automatiquement + email employé
-  
-  uniquement)
         │
    >= 3 jours
         │
         ▼
-  Drive créé + tokens générés + email Supérieur
+  Tokens générés + email Supérieur
         │
    ┌────┴────┐
-Approuvé  Rejeté ──► email employé + clôture (Drive → Rejeté)
+Approuvé  Rejeté ──► email employé + clôture (pas de Drive)
    │
    ▼
   Email RH
    │
    ┌────┴────┐
-Approuvé  Rejeté ──► email employé + clôture (Drive → Rejeté)
+Approuvé  Rejeté ──► email employé + clôture (pas de Drive)
    │
    ▼
   Email Présidence
    │
    ┌────┴────┐
-Approuvé  Rejeté ──► email employé + clôture (Drive → Rejeté)
+Approuvé  Rejeté ──► email employé + clôture (pas de Drive)
    │
    ▼
-email employé (confirmation)
-+ doc mis à jour
-+ Drive → Accepté
+Drive créé (Accepté/) + doc rempli
++ PDF joint à l'email de confirmation employé
 ```
 
 ### Règles de notification employé
@@ -504,7 +501,9 @@ Accessible depuis le Google Sheet après ouverture (rechargez la page si absent)
 4. Si doublon de trigger : menu **Absences** → **Nettoyer les triggers en double**
 5. Consulter les logs Apps Script pour voir les messages d'erreur
 
-### Le dossier Drive n'est pas créé
+### Le dossier Drive n'est pas créé après approbation Présidence
+
+> Le dossier et le doc Drive sont créés **uniquement lors de l'approbation finale par la Présidence**. Pour les demandes en cours ou rejetées, l'absence de dossier Drive est normale.
 
 1. Vérifier `DRIVE_DOSSIER_RACINE` et `DRIVE_DOSSIER_TEMPLATE` dans `Config.gs`
 2. Vérifier que le dossier template contient **exactement un seul** fichier Google Doc
@@ -543,4 +542,4 @@ Le système ne compte pas les samedis, dimanches et jours fériés dans le déla
 
 ## Licence
 
-Usage interne — Massaka. Tous droits réservés.
+Usage interne — Entreprise 1. Tous droits réservés.

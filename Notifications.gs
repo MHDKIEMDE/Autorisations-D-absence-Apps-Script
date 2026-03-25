@@ -15,16 +15,18 @@ function getThemeEmail(emailSup) {
       couleurBadge:  pres.couleurBadge  || '#f8c542',
       couleurAccent: pres.couleurAccent || pres.couleur,
       couleurTexte:  pres.couleurTexte  || '#ffffff',
-      police:        pres.police        || "'Segoe UI', Arial, sans-serif"
+      police:        pres.police        || "'Segoe UI', Arial, sans-serif",
+      nomOrg:        pres.nomOrg        || CONFIG.NOM_ORG
     };
   }
-  // Theme par defaut — Massaka SAS
+  // Theme par defaut
   return {
     couleur:       '#016579',
     couleurBadge:  '#f8c542',
     couleurAccent: '#016579',
     couleurTexte:  '#ffffff',
-    police:        "'Segoe UI', Arial, sans-serif"
+    police:        "'Segoe UI', Arial, sans-serif",
+    nomOrg:        CONFIG.NOM_ORG
   };
 }
 
@@ -136,12 +138,13 @@ function blocRecapitulatif(demande, theme) {
 // 1. Accuse de reception a l'employe
 // ============================================================
 function envoyerAccuseReceptionEmploye(demande) {
-  const theme = getThemeEmail(demande.emailSuperieur);
+  const theme  = getThemeEmail(demande.emailSuperieur);
+  const nomOrg = theme.nomOrg;
   const htmlBody = `
     <!DOCTYPE html><html><head><meta charset="UTF-8">${cssEmail(theme)}</head>
     <body><div class="wrap">
       <div class="header">
-        <div class="logo">⬡ ${CONFIG.NOM_ORG}</div>
+        <div class="logo">⬡ ${nomOrg}</div>
         <div class="sous-titre">Système de gestion des absences</div>
         <div class="badge">Accusé de réception</div>
       </div>
@@ -164,15 +167,15 @@ function envoyerAccuseReceptionEmploye(demande) {
           Pour toute question, contactez le service RH.
         </p>
       </div>
-      <div class="footer">${CONFIG.NOM_ORG} — Système automatisé de gestion des absences</div>
+      <div class="footer">${nomOrg} — Système automatisé de gestion des absences</div>
     </div></body></html>
   `;
 
   GmailApp.sendEmail(
     demande.emailEmploye,
-    `[${CONFIG.NOM_ORG}] Demande reçue – ${demande.idDemande}`,
+    `[${nomOrg}] Demande reçue – ${demande.idDemande}`,
     '',
-    { htmlBody: htmlBody, name: CONFIG.NOM_ORG + ' RH' }
+    { htmlBody: htmlBody, name: nomOrg + ' RH' }
   );
 
   log('OK', 'Notifications', `Email envoye a ${demande.emailEmploye} - accuse reception`);
@@ -203,7 +206,8 @@ function envoyerNotificationValidateur(demande, niveau, token) {
     destinations.push({ to: pres.email, nom: pres.nom });
   }
 
-  const theme = getThemeEmail(demande.emailSuperieur);
+  const theme  = getThemeEmail(demande.emailSuperieur);
+  const nomOrg = theme.nomOrg;
   const lienApprouver = `${CONFIG.WEBAPP_URL}?token=${token}&action=APPROUVE`;
   const lienRejeter   = `${CONFIG.WEBAPP_URL}?token=${token}`;
 
@@ -217,7 +221,7 @@ function envoyerNotificationValidateur(demande, niveau, token) {
       <!DOCTYPE html><html><head><meta charset="UTF-8">${cssEmail(theme)}</head>
       <body><div class="wrap">
         <div class="header">
-          <div class="logo">⬡ ${CONFIG.NOM_ORG}</div>
+          <div class="logo">⬡ ${nomOrg}</div>
           <div class="sous-titre">Système de gestion des absences</div>
           <div class="badge">Action requise — ${labelNiveau}</div>
         </div>
@@ -273,15 +277,15 @@ function envoyerNotificationValidateur(demande, niveau, token) {
             Employé : ${demande.prenom} ${demande.nom}
           </p>
         </div>
-        <div class="footer">${CONFIG.NOM_ORG} — Système automatisé de gestion des absences</div>
+        <div class="footer">${nomOrg} — Système automatisé de gestion des absences</div>
       </div></body></html>
     `;
 
     GmailApp.sendEmail(
       to,
-      `[${CONFIG.NOM_ORG}] A valider – ${demande.idDemande} – ${demande.prenom} ${demande.nom}`,
+      `[${nomOrg}] A valider – ${demande.idDemande} – ${demande.prenom} ${demande.nom}`,
       '',
-      { htmlBody: htmlBody, name: CONFIG.NOM_ORG + ' RH' }
+      { htmlBody: htmlBody, name: nomOrg + ' RH' }
     );
 
     log('OK', 'Notifications', `Email envoye a ${to} - niveau ${niveau}`);
@@ -295,11 +299,12 @@ function envoyerNotificationValidateur(demande, niveau, token) {
 // ============================================================
 function envoyerConfirmationFinaleEmploye(demande, decision, motif) {
   const theme       = getThemeEmail(demande.emailSuperieur);
+  const nomOrg      = theme.nomOrg;
   const estApprouve = decision === 'Approuve' || decision === 'Approuvé';
 
   const sujet = estApprouve
-    ? `[${CONFIG.NOM_ORG}] Absence approuvee – ${demande.idDemande}`
-    : `[${CONFIG.NOM_ORG}] Absence refusee – ${demande.idDemande}`;
+    ? `[${nomOrg}] Absence approuvee – ${demande.idDemande}`
+    : `[${nomOrg}] Absence refusee – ${demande.idDemande}`;
 
   const iconResultat  = estApprouve ? '✅' : '❌';
   const texteResultat = estApprouve ? 'Votre demande a été approuvée' : 'Votre demande a été refusée';
@@ -312,20 +317,17 @@ function envoyerConfirmationFinaleEmploye(demande, decision, motif) {
 
   const blocDoc = (estApprouve && demande.driveDocID) ? `
     <div class="section-title">Document officiel</div>
-    <div class="btn-block" style="margin-top:12px">
-      <a href="https://docs.google.com/document/d/${demande.driveDocID}/edit"
-         style="display:inline-block;padding:11px 24px;background:${theme.couleur};color:${theme.couleurTexte};
-                border-radius:6px;text-decoration:none;font-weight:700;font-size:14px;">
-        📄 Voir le document
-      </a>
-    </div>
+    <p style="font-size:14px;color:#555555;line-height:1.6;margin-top:8px">
+      Votre autorisation d'absence signée est jointe en pièce jointe (PDF).<br>
+      Conservez-la comme justificatif officiel.
+    </p>
   ` : '';
 
   const htmlBody = `
     <!DOCTYPE html><html><head><meta charset="UTF-8">${cssEmail(theme)}</head>
     <body><div class="wrap">
       <div class="header">
-        <div class="logo">⬡ ${CONFIG.NOM_ORG}</div>
+        <div class="logo">⬡ ${nomOrg}</div>
         <div class="sous-titre">Système de gestion des absences</div>
         <div class="badge">${estApprouve ? 'Decision finale — Approuve' : 'Decision finale — Refuse'}</div>
       </div>
@@ -347,16 +349,24 @@ function envoyerConfirmationFinaleEmploye(demande, decision, motif) {
           Référence : <strong>${demande.idDemande}</strong>
         </p>
       </div>
-      <div class="footer">${CONFIG.NOM_ORG} — Système automatisé de gestion des absences</div>
+      <div class="footer">${nomOrg} — Système automatisé de gestion des absences</div>
     </div></body></html>
   `;
 
-  GmailApp.sendEmail(
-    demande.emailEmploye,
-    sujet,
-    '',
-    { htmlBody: htmlBody, name: CONFIG.NOM_ORG + ' RH' }
-  );
+  const options = { htmlBody: htmlBody, name: nomOrg + ' RH' };
+
+  if (estApprouve && demande.driveDocID) {
+    try {
+      const pdf = DriveApp.getFileById(demande.driveDocID)
+        .getAs('application/pdf');
+      pdf.setName(`${demande.idDemande} - ${demande.nomComplet}.pdf`);
+      options.attachments = [pdf];
+    } catch (e) {
+      log('WARN', 'Notifications', `Impossible de joindre le PDF pour ${demande.idDemande} : ${e}`);
+    }
+  }
+
+  GmailApp.sendEmail(demande.emailEmploye, sujet, '', options);
 
   log('OK', 'Notifications', `Email envoye a ${demande.emailEmploye} - decision finale (${decision})`);
 }
