@@ -127,9 +127,8 @@ const CONFIG = {
 
     // ── Chefs de section ─────────────────────────────────────────────────────
     // Même schéma que Administration : Présidence valide en premier, RH clôture.
-    // Ajouter une entrée par section dès que les intitulés exacts du formulaire sont connus.
-    // Exemple : 'Chef de section — Élevage': { sup: null, workflow: 'PRES_RH' },
-    'Chef de section':       { sup: null,                      workflow: 'PRES_RH'     },  // Chef de section → Présidence puis RH (final)
+    'Chef de section — MEDIAPROD':       { sup: null, workflow: 'PRES_RH' },
+    'Chef de section — AGRIBUSINESS TV': { sup: null, workflow: 'PRES_RH' },
 
     // ── Agribusiness TV ──────────────────────────────────────────────────────
     'Editoriale':            { sup: 'REMPLACER_SUP_EDITORIALE',  workflow: 'SUP_RH_PRES' },  // Service Éditorial
