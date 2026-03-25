@@ -119,20 +119,15 @@ const CONFIG = {
   // ----------------------------------------------------------
   SERVICE_SUP_MAP: {
 
-    // ── Massaka SAS ───────────────────────────────────────────────────────────
-    'CDP':                   { sup: 'REMPLACER_SUP_CDP',       workflow: 'SUP_RH_PRES' },  // Communication pour le Développement
-    'CD':                    { sup: 'REMPLACER_SUP_CD',        workflow: 'SUP_RH_PRES' },  // Communication pour le Digital
-    'Techniciens CDP':       { sup: 'REMPLACER_SUP_TECH_CDP',  workflow: 'SUP_RH_PRES' },  // Techniciens CDP — Massaka SAS
-    'Administration':        { sup: null,                      workflow: 'PRES_RH'     },  // Comptabilité, Marketing, RH → Présidence puis RH (final)
-
-    // ── Chefs de section ─────────────────────────────────────────────────────
-    // Même schéma que Administration : Présidence valide en premier, RH clôture.
-    'Chef de section — MEDIAPROD':       { sup: null, workflow: 'PRES_RH' },
-    'Chef de section — AGRIBUSINESS TV': { sup: null, workflow: 'PRES_RH' },
+    // ── MEDIAPROD ─────────────────────────────────────────────────────────────
+    'MEDIAPROD':                         { sup: 'sup.mediaprod@massaka.com',   workflow: 'SUP_RH_PRES' },
+    'Administration (Massaka SAS)':      { sup: null,                          workflow: 'PRES_RH'     },  // Présidence puis RH (final)
+    'Chef de section — MEDIAPROD':       { sup: null,                          workflow: 'PRES_RH'     },  // Présidence puis RH (final)
 
     // ── Agribusiness TV ──────────────────────────────────────────────────────
-    'Editoriale':            { sup: 'REMPLACER_SUP_EDITORIALE',  workflow: 'SUP_RH_PRES' },  // Service Éditorial
-    'Techniciens Éditorial': { sup: 'REMPLACER_SUP_TECH_EDIT',   workflow: 'SUP_RH_PRES' },  // Techniciens Éditorial — Agribusiness TV
+    'Chef de section — AGRIBUSINESS TV': { sup: null,                          workflow: 'PRES_RH'     },  // Présidence puis RH (final)
+    'Editoriale (Agribusiness TV)':      { sup: 'sup.editorial@agribusiness.com',  workflow: 'SUP_RH_PRES' },
+    'Techniciens Éditorial (Agribusiness TV)': { sup: 'sup.tech.edit@agribusiness.com', workflow: 'SUP_RH_PRES' },
 
   },
 
@@ -143,14 +138,12 @@ const CONFIG = {
   // ----------------------------------------------------------
   SUP_NOMS: {
 
-    // ── Massaka SAS ───────────────────────────────────────────────────────────
-    'REMPLACER_SUP_CDP':        'Prénom Nom — Directeur CDP',
-    'REMPLACER_SUP_CD':         'Prénom Nom — Directeur CD',
-    'REMPLACER_SUP_TECH_CDP':   'Prénom Nom — Responsable Technique (CDP)',
+    // ── MEDIAPROD ─────────────────────────────────────────────────────────────
+    'sup.mediaprod@massaka.com':       'Prénom Nom — Responsable MEDIAPROD',
 
     // ── Agribusiness TV ──────────────────────────────────────────────────────
-    'REMPLACER_SUP_EDITORIALE': 'Prénom Nom — Responsable Éditorial',
-    'REMPLACER_SUP_TECH_EDIT':  'Prénom Nom — Responsable Technique (Éditorial)',
+    'sup.editorial@agribusiness.com':  'Prénom Nom — Responsable Éditorial',
+    'sup.tech.edit@agribusiness.com':  'Prénom Nom — Responsable Technique (Éditorial)',
 
   },
 
