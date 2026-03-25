@@ -120,14 +120,14 @@ const CONFIG = {
   SERVICE_SUP_MAP: {
 
     // ── MEDIAPROD ─────────────────────────────────────────────────────────────
-    'MEDIAPROD':                         { sup: 'sup.mediaprod@massaka.com',   workflow: 'SUP_RH_PRES' },
-    'Administration (Massaka SAS)':      { sup: null,                          workflow: 'PRES_RH'     },  // Présidence puis RH (final)
-    'Chef de section — MEDIAPROD':       { sup: null,                          workflow: 'PRES_RH'     },  // Présidence puis RH (final)
+    'MEDIAPROD':                         { sup: 'sup.mediaprod@massaka.com',        workflow: 'SUP_RH_PRES', nomOrg: 'Massaka SAS'     },
+    'Administration (Massaka SAS)':      { sup: null,                               workflow: 'PRES_RH',     nomOrg: 'Massaka SAS'     },
+    'Chef de section — MEDIAPROD':       { sup: null,                               workflow: 'PRES_RH',     nomOrg: 'Massaka SAS'     },
 
     // ── Agribusiness TV ──────────────────────────────────────────────────────
-    'Chef de section — AGRIBUSINESS TV': { sup: null,                          workflow: 'PRES_RH'     },  // Présidence puis RH (final)
-    'Editoriale (Agribusiness TV)':      { sup: 'sup.editorial@agribusiness.com',  workflow: 'SUP_RH_PRES' },
-    'Techniciens Éditorial (Agribusiness TV)': { sup: 'sup.tech.edit@agribusiness.com', workflow: 'SUP_RH_PRES' },
+    'Chef de section — AGRIBUSINESS TV': { sup: null,                               workflow: 'PRES_RH',     nomOrg: 'Agribusiness TV' },
+    'Editoriale (Agribusiness TV)':      { sup: 'sup.editorial@agribusiness.com',   workflow: 'SUP_RH_PRES', nomOrg: 'Agribusiness TV' },
+    'Techniciens Éditorial (Agribusiness TV)': { sup: 'sup.tech.edit@agribusiness.com', workflow: 'SUP_RH_PRES', nomOrg: 'Agribusiness TV' },
 
   },
 

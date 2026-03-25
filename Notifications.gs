@@ -5,6 +5,11 @@
 // Toute la configuration email est dans Config.gs (CONFIG).
 // ============================================================
 
+// Retourne le nom de l'organisation selon le service de l'employe
+function getNomOrg(service) {
+  return ((CONFIG.SERVICE_SUP_MAP || {})[service] || {}).nomOrg || CONFIG.NOM_ORG;
+}
+
 // Retourne le theme couleur/police selon la Presidence du superieur
 function getThemeEmail(emailSup) {
   const map  = CONFIG.PRESIDENCE_MAP || {};
@@ -139,7 +144,7 @@ function blocRecapitulatif(demande, theme) {
 // ============================================================
 function envoyerAccuseReceptionEmploye(demande) {
   const theme    = getThemeEmail(demande.emailSuperieur);
-  const nomOrg   = theme.nomOrg;
+  const nomOrg   = getNomOrg(demande.service);
   const workflow = ((CONFIG.SERVICE_SUP_MAP || {})[demande.service] || {}).workflow || 'SUP_RH_PRES';
 
   const texteEtapes = {
@@ -215,7 +220,7 @@ function envoyerNotificationValidateur(demande, niveau, token) {
   }
 
   const theme  = getThemeEmail(demande.emailSuperieur);
-  const nomOrg = theme.nomOrg;
+  const nomOrg = getNomOrg(demande.service);
   const lienApprouver = `${CONFIG.WEBAPP_URL}?token=${token}&action=APPROUVE`;
   const lienRejeter   = `${CONFIG.WEBAPP_URL}?token=${token}`;
 
@@ -307,7 +312,7 @@ function envoyerNotificationValidateur(demande, niveau, token) {
 // ============================================================
 function envoyerConfirmationFinaleEmploye(demande, decision, motif) {
   const theme       = getThemeEmail(demande.emailSuperieur);
-  const nomOrg      = theme.nomOrg;
+  const nomOrg      = getNomOrg(demande.service);
   const estApprouve = decision === 'Approuve' || decision === 'Approuvé';
 
   const sujet = estApprouve
