@@ -1,7 +1,7 @@
-# Système d'autorisation d'absence — Entreprise 1
+# Système d'autorisation d'absence — Massaka SAS / Agribusiness TV
 
-Système complet de gestion des demandes d'absence sur Google Apps Script.
-Les employés soumettent via un Google Form ; les validateurs approuvent ou rejettent soit **directement dans le Google Sheet**, soit via **des liens email** (les deux modes coexistent).
+Système complet de gestion des demandes d'absence sur **Google Apps Script**.
+Les employés soumettent via un **Google Form** ; les validateurs approuvent ou rejettent soit **directement dans le Google Sheet**, soit via **des liens email** (les deux modes coexistent sans conflit).
 
 ---
 
@@ -12,12 +12,12 @@ Les employés soumettent via un Google Form ; les validateurs approuvent ou reje
 3. [Prérequis](#3-prérequis)
 4. [Installation pas à pas](#4-installation-pas-à-pas)
 5. [Configuration (Config.gs)](#5-configuration-configgs)
-6. [Structure du Google Sheet](#6-structure-du-google-sheet)
-7. [Structure Google Drive](#7-structure-google-drive)
-8. [Workflow de validation](#8-workflow-de-validation)
-9. [Mode de validation manuelle (Sheet)](#9-mode-de-validation-manuelle-sheet)
-10. [Règle de délai et jours ouvrables](#10-règle-de-délai-et-jours-ouvrables)
-11. [Double Présidence — routage automatique](#11-double-présidence--routage-automatique)
+6. [Thèmes visuels par organisation](#6-thèmes-visuels-par-organisation)
+7. [Structure du Google Sheet](#7-structure-du-google-sheet)
+8. [Structure Google Drive](#8-structure-google-drive)
+9. [Circuits de validation (workflows)](#9-circuits-de-validation-workflows)
+10. [Mode de validation manuelle (Sheet)](#10-mode-de-validation-manuelle-sheet)
+11. [Règle de délai et jours ouvrables](#11-règle-de-délai-et-jours-ouvrables)
 12. [Protections et sécurité](#12-protections-et-sécurité)
 13. [Relances automatiques](#13-relances-automatiques)
 14. [Menu Absences — outils d'administration](#14-menu-absences--outils-dadministration)
@@ -34,30 +34,34 @@ Google Form
     ▼
 Google Sheet ──► Apps Script (onFormSubmit)
     │                  │
-    │          Email (accusé réception employé)
+    │          [Règle délai < 3 j. ouvrables]
+    │                  │ rejet auto → email employé
+    │                  │
+    │          Résolution service → supervisor + workflow + nomOrg
+    │          Génération tokens + initialisation statuts
+    │                  │
+    │          Email accusé réception employé
+    │          Email premier validateur (Sup / RH / Présidence)
     │
-    ├── Validation manuelle (Sheet)          ◄── validateur édite col Q/R/S
-    │       │
-    │       ▼ trigger installable (traiterDecisionManuelle)
+    ├── Validation manuelle (Sheet)     ◄── validateur édite col R/S/T
+    │       └── trigger traiterDecisionManuelle
     │
-    └── Validation par email (WebApp)        ◄── validateur clique lien
-            │
-            ▼ doGet → traiterDecision
-            │
-     [Approuvé / Rejeté]
-            │
-     ┌──────┴──────┐
-     │             │
-  Approuvé      Rejeté
-  Présidence :  ──► Email final employé
-  Drive créé    (pas de dossier Drive)
-  + doc PDF
-  joint à
-  l'email final
+    └── Validation par email (WebApp)  ◄── validateur clique lien
+            └── doGet → traiterDecision
+                    │
+             [Approuvé / Rejeté]
+                    │
+             ┌──────┴──────┐
+          Approuvé       Rejeté
+          (dernier        └── Email final employé
+           niveau)            (pas de Drive)
+             │
+        Drive créé (dossier + doc)
+        Email final employé
 ```
 
-**Cascade de validation :** Supérieur → RH → Présidence
-L'employé est notifié **uniquement** en cas de rejet (tout niveau) ou d'approbation finale (Présidence).
+**Cascade de validation :** le circuit dépend du service (voir § 9).
+L'employé est notifié **uniquement** en cas de rejet ou d'approbation finale.
 
 ---
 
@@ -65,24 +69,24 @@ L'employé est notifié **uniquement** en cas de rejet (tout niveau) ou d'approb
 
 | Fichier | Rôle |
 |---------|------|
-| `Config.gs` | **Seul fichier à modifier.** Tous les paramètres (emails, IDs, délais, jours fériés) |
-| `Code.gs` | Trigger `onFormSubmit` — réception des demandes, rejet automatique délai, trigger `onEdit` protection |
+| `Config.gs` | **Seul fichier à modifier.** Emails, IDs Drive, délais, fériés, SERVICE_SUP_MAP, thèmes |
+| `Code.gs` | Trigger `onFormSubmit` — réception, rejet délai, initialisation workflow, `onEdit` |
 | `Workflow.gs` | Logique de décision — `traiterDecision` (WebApp) et `traiterDecisionManuelle` (Sheet) |
-| `Notifications.gs` | Emails HTML — accusé de réception, notification validateur, confirmation finale employé |
-| `DriveManager.gs` | Création dossier/doc Drive, remplissage du template, déplacement par statut |
+| `Notifications.gs` | Emails HTML — accusé réception, notification validateur, confirmation finale |
+| `DriveManager.gs` | Création dossier/doc Drive, template, déplacement par statut |
 | `WebApp.gs` | Interface HTML de validation par lien email (`doGet`) |
-| `Setup.gs` | Initialisation, menu, protections colonnes, validation de données (dropdowns) |
+| `Setup.gs` | Initialisation, menu, protections colonnes, dropdowns |
 | `Relances.gs` | Relances automatiques quotidiennes, outils de maintenance |
-| `Utils.gs` | Fonctions partagées — logs, UUID, formatage dates, calcul jours ouvrables |
+| `Utils.gs` | Fonctions partagées — logs, UUID, `lireDemande`, formatage dates, jours ouvrables |
 
 ---
 
 ## 3. Prérequis
 
-- Compte **Google Workspace** (requis pour GmailApp, Drive, DocumentApp)
+- Compte **Google Workspace** (GmailApp, Drive, DocumentApp)
 - Un **Google Form** lié au Google Sheet
-- Un **dossier Google Drive** racine avec 1 sous-dossier : `Accepté`
-- Un **dossier template** Drive contenant **un seul** Google Doc (le modèle de document officiel)
+- Un **dossier Google Drive** racine avec sous-dossier `Accepté`
+- Un **dossier template** Drive contenant **un seul** Google Doc (modèle officiel)
 - Droits d'administrateur sur le script pour installer les triggers
 
 ---
@@ -93,453 +97,362 @@ L'employé est notifié **uniquement** en cas de rejet (tout niveau) ou d'approb
 
 ```
 Dossier racine/
-└── Accepté/   ← créé automatiquement si absent, inutile de le créer manuellement
+└── Accepté/    ← créé automatiquement si absent
 
 Dossier template/
-└── [Votre modèle Google Doc]   ← un seul fichier
+└── [Modèle Google Doc]   ← un seul fichier
 ```
 
-Notez les **IDs** des deux dossiers (dans l'URL Drive : `folders/XXXX`).
+Notez les **IDs** des deux dossiers (URL Drive : `folders/XXXX`).
 
-### Étape 2 — Préparer le template Google Doc
-
-Le document doit contenir ces balises exactes (remplacées automatiquement) :
-
-Le template supporte deux sections distinctes selon le type de permission.
-
-**Balises communes (toutes permissions)**
+### Étape 2 — Template Google Doc (balises)
 
 | Balise | Contenu injecté |
 |--------|----------------|
-| `{{ID_DEMANDE}}` | Référence MSK-AAAA-XXXX |
-| `{{NOM}}` | Nom de l'employé |
+| `{{ID_DEMANDE}}` | MSK-AAAA-XXXX |
+| `{{NOM}}` | Nom employé |
 | `{{PRENOM}}` | Prénom |
 | `{{MATRICULE}}` | Matricule |
-| `{{SERVICE}}` | Service / Poste |
+| `{{SERVICE}}` | Service |
 | `{{TYPE_PERMISSION}}` | Type de permission |
-| `{{DATE_SOUMISSION}}` | Date et heure de soumission |
-| `{{AVIS_SUPERIEUR}}` | Décision du supérieur (remplie à la clôture) |
+| `{{DATE_SOUMISSION}}` | Date/heure soumission |
+| `{{AVIS_SUPERIEUR}}` | Décision supérieur |
 | `{{AVIS_RH}}` | Décision RH |
 | `{{AVIS_PRESIDENCE}}` | Décision Présidence |
-| `{{COMMENTAIRE}}` | Motif de rejet (si applicable) |
+| `{{COMMENTAIRE}}` | Motif de rejet |
 | `{{DATE_CLOTURE}}` | Date de clôture |
-
-**Balises — Permission exceptionnelle**
-
-| Balise | Contenu injecté |
-|--------|----------------|
-| `{{TYPE_ABSENCE}}` | Type d'absence (dropdown formulaire) |
-| `{{MOTIF_EXCEPTIONNEL}}` | Identique à `{{TYPE_ABSENCE}}` |
-| `{{DATE_DEBUT}}` | Date de début (ex : lundi 23 mars 2026) |
-| `{{HEURE_DEBUT}}` | Heure de début (ex : 08h00) |
-| `{{DATE_FIN}}` | Date de fin |
-| `{{HEURE_FIN}}` | Heure de fin |
-| `{{NB_JOURS_EXCEPTIONNEL}}` | Durée calculée automatiquement |
-
-**Balises — Permission ordinaire**
-
-| Balise | Contenu injecté |
-|--------|----------------|
-| `{{MOTIF_ORDINAIRE}}` | Motif saisi librement par l'employé |
-| `{{MOTIF}}` | Identique à `{{MOTIF_ORDINAIRE}}` |
-| `{{DATE_DEBUT_ORDINAIRE}}` | Date du début de l'absence ordinaire |
-| `{{DATE_FIN_ORDINAIRE}}` | Date du fin de l'absence ordinaire |
-| `{{NB_JOURS}}` / `{{NB_JOURS_ORDINAIRE}}` | Nombre de jours saisi dans le formulaire |
-
-> **Important :** Les balises `{{AVIS_*}}` et `{{DATE_CLOTURE}}` sont remplies **uniquement à la décision finale**. Elles doivent rester intactes dans le template.
+| `{{TYPE_ABSENCE}}` | Sous-type absence exceptionnelle |
+| `{{DATE_DEBUT}}` / `{{HEURE_DEBUT}}` | Début (exceptionnelle) |
+| `{{DATE_FIN}}` / `{{HEURE_FIN}}` | Fin (exceptionnelle) |
+| `{{NB_JOURS_EXCEPTIONNEL}}` | Durée calculée |
+| `{{MOTIF_ORDINAIRE}}` | Motif (ordinaire) |
+| `{{DATE_DEBUT_ORDINAIRE}}` / `{{DATE_FIN_ORDINAIRE}}` | Dates (ordinaire) |
+| `{{NB_JOURS}}` | Nombre de jours (ordinaire) |
 
 ### Étape 3 — Configurer Config.gs
 
-Ouvrir `Config.gs` et renseigner :
+Renseigner obligatoirement :
 
 ```javascript
 SHEET_REPONSES_ID:       'ID_du_Google_Sheet',
 EMAIL_RH:                'rh@votreorg.com',
-NOM_RH:                  'Prénom Nom RH',
-
-// Présidence par défaut (fallback si superviseur absent de PRESIDENCE_MAP)
 EMAIL_PRESIDENCE:        'president@votreorg.com',
-NOM_PRESIDENCE:          'Prénom Nom Président',
-
-// Mapping superviseur → Présidence compétente
-PRESIDENCE_MAP: {
-  'sup1@votreorg.com': { email: 'pres-a@votreorg.com', nom: 'Prénom Nom — Présidence A' },
-  'sup2@votreorg.com': { email: 'pres-b@votreorg.com', nom: 'Prénom Nom — Présidence B' },
-},
-
-SUP_NOMS: {
-  'sup1@votreorg.com': 'Prénom Nom — Directeur',
-  'sup2@votreorg.com': 'Prénom Nom — Chef de service',
-},
 DRIVE_DOSSIER_RACINE:   'ID_dossier_racine',
 DRIVE_DOSSIER_TEMPLATE: 'ID_dossier_template',
-WEBAPP_URL:             'REMPLACER_APRES_DEPLOIEMENT',  // ← remplir à l'étape 5
-NOM_ORG:                'Votre Organisation',
+WEBAPP_URL:             'REMPLACER_APRES_DEPLOIEMENT',
 ```
+
+Puis configurer `SERVICE_SUP_MAP` (voir § 5).
 
 ### Étape 4 — Initialiser le projet
 
-Dans le Google Sheet : menu **Absences** → (si le menu n'apparaît pas, ouvrir l'éditeur Apps Script → Exécuter `onOpen`)
-
-Puis exécuter dans l'éditeur Apps Script :
+Dans l'éditeur Apps Script, exécuter :
 ```
 initialiserProjet()
 ```
-
-Cela installe les triggers, crée les en-têtes de colonnes, configure les protections et active la validation manuelle.
+Installe les triggers, en-têtes colonnes, protections et dropdowns.
 
 ### Étape 5 — Déployer la Web App
 
-Dans Apps Script :
-1. **Déployer** → **Nouveau déploiement**
-2. Type : **Application Web**
-3. Exécuter en tant que : **Moi**
-4. Accès : **Toute personne** (ou domaine selon politique)
-5. Copier l'URL générée dans `Config.gs` → `WEBAPP_URL`
+1. **Déployer → Nouveau déploiement**
+2. Type : **Application Web** / Exécuter en tant que : **Moi** / Accès : **Toute personne**
+3. Copier l'URL → `Config.gs → WEBAPP_URL`
 
 ### Étape 6 — Activer la validation manuelle
 
 Menu **Absences** → **⚙️ Activer validation manuelle (Sheet)**
 
-Cette étape installe le trigger installable `traiterDecisionManuelle`.
-Si `initialiserProjet()` a déjà été exécuté, ce trigger est déjà actif.
-
 ### Étape 7 — Tester
 
-Soumettre une demande test via le formulaire et vérifier :
-
-- [ ] Colonnes U–AC remplies automatiquement dans le Sheet
+- [ ] Colonnes V–AD remplies automatiquement après soumission
 - [ ] Email accusé de réception reçu par l'employé
-- [ ] Email notification reçu par le supérieur (avec les deux options : Sheet et lien)
-- [ ] **Aucun** dossier Drive créé à cette étape (création uniquement à l'approbation finale)
-- [ ] Validation manuelle dans le Sheet déclenche les emails suivants
-- [ ] Validation par lien email fonctionne
-- [ ] À l'approbation Présidence : dossier + doc créés dans Drive → `Accepté/`, PDF joint à l'email employé
-- [ ] En cas de rejet (tout niveau) : email envoyé à l'employé, aucun dossier Drive créé
+- [ ] Email notification reçu par le premier validateur
+- [ ] Thème email (badge/boutons) correspond à l'entreprise de l'employé
+- [ ] Aucun dossier Drive créé avant approbation finale
+- [ ] Validation Sheet et lien email fonctionnent sans conflit
+- [ ] À l'approbation finale : dossier Drive créé dans `Accepté/`
 
 ---
 
 ## 5. Configuration (Config.gs)
 
-### Paramètres principaux
+### SERVICE_SUP_MAP — Mapping service → workflow
 
-| Paramètre | Description | Valeur par défaut |
-|-----------|-------------|-------------------|
-| `SHEET_REPONSES_ID` | ID du Google Sheet | À renseigner |
-| `ONGLET_REPONSES` | Nom de l'onglet | `Réponses au formulaire 1` |
-| `DELAI_MIN_JOURS_OUVRABLES` | Préavis minimum (jours ouvrables) | `3` |
-| `DELAI_RELANCE_JOURS` | Jours avant relance automatique | `7` |
-| `EMAIL_RH` / `NOM_RH` | Responsable RH | À renseigner |
-| `EMAIL_PRESIDENCE` / `NOM_PRESIDENCE` | Président | À renseigner |
-| `SUP_NOMS` | Dictionnaire email → nom des supérieurs | `{}` |
-| `DRIVE_DOSSIER_RACINE` | ID du dossier racine Drive | À renseigner |
-| `DRIVE_DOSSIER_TEMPLATE` | ID du dossier template | À renseigner |
-| `WEBAPP_URL` | URL de la Web App déployée | À renseigner après déploiement |
-| `NOM_ORG` | Nom affiché dans les emails | `Entreprise 1` |
-| `JOURS_FERIES` | Liste des jours fériés `['YYYY-MM-DD']` | Jours fériés 2026 |
-
-### Ajouter un supérieur hiérarchique
+C'est la clé de voûte du système. Chaque service du formulaire doit y figurer **exactement** (même casse, même orthographe).
 
 ```javascript
-SUP_NOMS: {
-  'sup1@votreorg.com':  'Prénom Nom — Directeur Financier',
-  'sup2@votreorg.com':  'Prénom Nom — Chef de Projet',
+SERVICE_SUP_MAP: {
+  'Nom du service': {
+    sup:      'email.superviseur@domaine.com',  // null si pas de supérieur
+    workflow: 'SUP_RH_PRES',                   // voir § 9
+    nomOrg:   'Massaka SAS',                   // ou 'Agribusiness TV'
+  },
 }
 ```
 
-L'email doit correspondre **exactement** à ce que l'employé sélectionne dans le formulaire.
-Après modification, relancer **Reconfigurer les protections** pour mettre à jour les accès col Q.
+| Champ | Description |
+|-------|-------------|
+| `sup` | Email du supérieur hiérarchique. `null` si le service n'en a pas |
+| `workflow` | Circuit de validation (voir § 9) |
+| `nomOrg` | Nom de l'organisation — détermine le thème email (voir § 6) |
+
+### PRESIDENCE_MAP — Routage multi-présidence (optionnel)
+
+Si plusieurs présidences existent, renseigner ce map pour router chaque superviseur vers la bonne présidence **et** lui appliquer un thème personnalisé :
+
+```javascript
+PRESIDENCE_MAP: {
+  'sup@org.com': {
+    email:         'president@org.com',
+    nom:           'Prénom Nom — Président',
+    couleur:       '#000000',
+    couleurBadge:  '#f8c542',
+    couleurAccent: '#016579',
+    couleurTexte:  '#ffffff',
+    police:        "'Montserrat', sans-serif",
+  },
+}
+```
+
+Si vide → `EMAIL_PRESIDENCE` et le thème `nomOrg` sont utilisés par défaut.
+
+### SUP_NOMS — Noms d'affichage
+
+```javascript
+SUP_NOMS: {
+  'sup@org.com': 'Prénom Nom — Titre',
+}
+```
 
 ---
 
-## 6. Structure du Google Sheet
+## 6. Thèmes visuels par organisation
 
-Les colonnes **A–P** sont remplies par le formulaire. Les colonnes **Q–AC** sont gérées par le script.
+Le thème est résolu automatiquement à partir du champ `nomOrg` dans `SERVICE_SUP_MAP`.
+**Aucune configuration supplémentaire n'est requise** : déclarer le bon `nomOrg` suffit.
 
-| Col | Nom | Rempli par | Description |
-|-----|-----|-----------|-------------|
+| Organisation | Badge | Accent (boutons/titres) | Police |
+|-------------|-------|------------------------|--------|
+| `Massaka SAS` | `#f8c542` jaune | `#016579` bleu-vert | Montserrat |
+| `Agribusiness TV` | `#B9EB57` vert | `#015438` vert foncé | Proxima Nova |
+
+Les deux organisations ont un **fond d'entête noir** et **texte blanc**.
+
+> Pour ajouter une 3ème organisation : ajouter une entrée dans `THEMES_ORG` dans `Notifications.gs` et utiliser le même nom dans `nomOrg` de `SERVICE_SUP_MAP`.
+
+---
+
+## 7. Structure du Google Sheet
+
+Les colonnes **A–P** sont remplies par le formulaire. Les colonnes **Q–AD** sont gérées par le script.
+
+| Col | Nom | Source | Description |
+|-----|-----|--------|-------------|
 | A | Horodateur | Formulaire | Date/heure de soumission |
 | B | Email employé | Formulaire | |
 | C | Matricule | Formulaire | |
 | D | Nom | Formulaire | |
 | E | Prénom | Formulaire | |
-| F | Service | Formulaire | |
-| G | Type permission | Formulaire | Permission ordinaire / exceptionnelle |
+| F | Service | Formulaire | Valeur exacte → lookup `SERVICE_SUP_MAP` |
+| G | Type permission | Formulaire | `Permission ordinaire` / `Permission exceptionnelle` |
 | H | Type absence | Formulaire | Sous-type si exceptionnelle |
-| I | Date début | Formulaire | |
-| J | Heure début | Formulaire | |
-| K | Date fin | Formulaire | |
-| L | Heure fin | Formulaire | |
-| M | Motif libre | Formulaire | |
-| N | Motif long | Formulaire | |
-| O | Nb jours | Formulaire | |
-| P | Email supérieur | Formulaire | Choisi par l'employé |
-| **Q** | **Avis Supérieur** | **Validateur** | En attente / Approuvé / Rejeté |
-| **R** | **Avis RH** | **Validateur** | En attente / Approuvé / Rejeté |
-| **S** | **Avis Présidence** | **Validateur** | En attente / Approuvé / Rejeté |
-| **T** | **Commentaire** | **Validateur** | Motif de rejet — obligatoire si Rejeté |
-| U | ID Demande | Script | ABS-2026-0001 |
-| V | Token Supérieur | Script | UUID usage unique |
-| W | Token RH | Script | UUID usage unique |
-| X | Token Présidence | Script | UUID usage unique |
-| Y | Statut Global | Script | En cours / Approuvé / Rejeté |
-| Z | Date Clôture | Script | |
-| AA | Drive Dossier ID | Script | ID du dossier de la demande |
-| AB | Drive Doc ID | Script | ID du Google Doc |
-| AC | Dernière Relance | Script | Date de la dernière relance envoyée |
+| I | Date début | Formulaire | Permission exceptionnelle uniquement |
+| J | Heure début | Formulaire | Permission exceptionnelle |
+| K | Date fin | Formulaire | Permission exceptionnelle |
+| L | Heure fin | Formulaire | Permission exceptionnelle |
+| M | Motif long | Formulaire | Permission ordinaire |
+| N | Nombre de jours | Formulaire | Permission ordinaire |
+| O | Date début ord. | Formulaire | Permission ordinaire |
+| P | Date fin ord. | Formulaire | Permission ordinaire |
+| **Q** | **Email supérieur** | **Script** | Résolu via `SERVICE_SUP_MAP[service].sup` |
+| **R** | **Avis Supérieur** | **Validateur** | `En attente` / `Approuvé` / `Rejeté` |
+| **S** | **Avis RH** | **Validateur** | `En attente` / `Approuvé` / `Rejeté` |
+| **T** | **Avis Présidence** | **Validateur** | `En attente` / `Approuvé` / `Rejeté` |
+| **U** | **Commentaire** | **Validateur** | Motif de rejet — obligatoire si Rejeté |
+| V | ID Demande | Script | `MSK-2026-0001` |
+| W | Token Supérieur | Script | UUID usage unique |
+| X | Token RH | Script | UUID usage unique |
+| Y | Token Présidence | Script | UUID usage unique |
+| Z | Statut global | Script | `En cours` / `Approuvé` / `Rejeté` |
+| AA | Date clôture | Script | |
+| AB | Drive Dossier ID | Script | Lien cliquable vers le dossier |
+| AC | Drive Doc ID | Script | Lien cliquable vers le Google Doc |
+| AD | Dernière relance | Script | Date de la dernière relance envoyée |
 
 ---
 
-## 7. Structure Google Drive
+## 8. Structure Google Drive
 
-```text
+```
 Dossier Racine/
 └── Accepté/
-    ├── MSK-2026-0001 - Nom Employé 1/
-    │   └── MSK-2026-0001 - Nom Employé 1  ← Google Doc
-    └── MSK-2026-0002 - Nom Employé 2/
-        └── MSK-2026-0002 - Nom Employé 2
+    ├── MSK-2026-0001 - Nom Employé/
+    │   └── MSK-2026-0001 - Nom Employé  ← Google Doc
+    └── MSK-2026-0002 - Nom Employé/
+        └── MSK-2026-0002 - Nom Employé
 
 Dossier Template/
 └── [Modèle document officiel]  ← 1 seul fichier
 ```
 
-> Le dossier et le Google Doc sont créés **uniquement lors de l'approbation finale par la Présidence**.
-> Les demandes rejetées n'ont aucune trace dans Drive — le Google Sheet conserve l'historique complet.
+> Dossier et Google Doc créés **uniquement à l'approbation finale**. Les demandes rejetées n'ont aucune trace Drive.
 
 ---
 
-## 8. Workflow de validation
+## 9. Circuits de validation (workflows)
 
-### Flux normal
+| Workflow | Circuit | Usage typique |
+|----------|---------|---------------|
+| `SUP_RH_PRES` | Supérieur → RH → Présidence | Circuit complet — employés avec supérieur |
+| `RH_PRES` | RH → Présidence | Pas de supérieur hiérarchique |
+| `PRES` | Présidence directement | Validateur unique |
+| `PRES_RH` | Présidence → RH (final) | RH est le validateur final (ex : Administration) |
 
-```text
-Soumission formulaire
-        │
-        ▼
-  Règle délai ? ──── < 3 jours ouvrables ──► Rejeté automatiquement + email employé
-        │
-   >= 3 jours
-        │
-        ▼
-  Tokens générés + email Supérieur
-        │
-   ┌────┴────┐
-Approuvé  Rejeté ──► email employé + clôture (pas de Drive)
-   │
-   ▼
-  Email RH
-   │
-   ┌────┴────┐
-Approuvé  Rejeté ──► email employé + clôture (pas de Drive)
-   │
-   ▼
-  Email Présidence
-   │
-   ┌────┴────┐
-Approuvé  Rejeté ──► email employé + clôture (pas de Drive)
-   │
-   ▼
-Drive créé (Accepté/) + doc rempli
-+ PDF joint à l'email de confirmation employé
-```
+Les niveaux sautés sont marqués `Approuvé` automatiquement et leurs tokens invalidés.
 
 ### Règles de notification employé
 
-| Événement | Notifié ? |
-|-----------|-----------|
+| Événement | Employé notifié ? |
+|-----------|-------------------|
 | Soumission | ✅ Accusé de réception |
-| Approbation Supérieur | ❌ |
-| Approbation RH | ❌ |
-| Approbation Présidence | ✅ Confirmation finale |
+| Approbation intermédiaire (Sup / RH) | ❌ |
+| Approbation finale | ✅ Confirmation avec doc Drive |
 | Rejet (tout niveau) | ✅ Email avec motif |
 | Rejet automatique délai | ✅ Email avec explication |
 
 ---
 
-## 9. Mode de validation manuelle (Sheet)
+## 10. Mode de validation manuelle (Sheet)
 
-Les validateurs peuvent décider **directement dans le Google Sheet** sans passer par les liens email.
+1. Trouver la ligne (colonne V = référence `MSK-AAAA-XXXX`)
+2. **Pour rejeter :** saisir le motif en **colonne U d'abord**
+3. Cliquer sur la cellule de votre colonne (R, S ou T) → choisir `Approuvé` ou `Rejeté`
 
-### Comment valider dans le Sheet
+> ⚠️ **Ordre obligatoire :** R avant S avant T (selon workflow).
+> ⚠️ **Motif obligatoire :** rejet sans motif → cellule annulée + message.
 
-1. Ouvrir le Google Sheet
-2. Trouver la ligne de la demande (colonne U = référence ABS-AAAA-XXXX)
-3. **Pour rejeter** : saisir le motif dans la **colonne T** en **premier**
-4. Cliquer sur la cellule de votre colonne (Q, R ou S) et choisir dans le menu déroulant :
-   - `Approuvé` — le niveau suivant est notifié automatiquement
-   - `Rejeté` — la demande est clôturée et l'employé notifié avec le motif de la col T
-
-> ⚠️ **Ordre obligatoire :** RH ne peut pas valider avant le Supérieur. Présidence ne peut pas valider avant le RH. Tentative hors ordre → cellule annulée + message.
-
-> ⚠️ **Motif obligatoire pour rejet :** Sélectionner `Rejeté` sans motif en colonne T → cellule annulée + message demandant de saisir le motif d'abord.
-
-### Coexistence Sheet et liens email
-
-Les deux modes fonctionnent **sans conflit** :
+### Coexistence Sheet ↔ lien email
 
 | Scénario | Résultat |
 |----------|---------|
-| Sheet d'abord, puis lien email | Lien email bloqué ("réponse déjà envoyée") |
-| Lien email d'abord, puis tentative Sheet | Cellule annulée par `onEdit` |
-| Double clic sur lien email | Bloqué (vérifie que la colonne n'est plus "En attente") |
-| Double édition Sheet | Bloqué (ancienneValeur = "Approuvé" ou "Rejeté") |
+| Sheet d'abord, puis lien email | Lien bloqué ("réponse déjà envoyée") |
+| Lien d'abord, puis tentative Sheet | Cellule annulée par `onEdit` |
+| Double-clic lien email | Bloqué (token déjà utilisé) |
 
 ---
 
-## 10. Règle de délai et jours ouvrables
+## 11. Règle de délai et jours ouvrables
 
-### Principe
-
-**Toutes les permissions sans exception** sont **automatiquement rejetées** si le début de l'absence est à moins de `DELAI_MIN_JOURS_OUVRABLES` jours ouvrables de la soumission.
-
-Les **samedis**, **dimanches** et les dates listées dans `JOURS_FERIES` ne comptent pas.
-
-> Pour toute situation urgente (maladie, cas de force majeure, etc.), l'employé doit contacter **directement la RH**.
-
-### Exemples
+**Toutes les permissions** sont rejetées automatiquement si le début est à moins de `DELAI_MIN_JOURS_OUVRABLES` jours ouvrables de la soumission (samedis, dimanches et `JOURS_FERIES` exclus).
 
 | Soumission | Début absence | Jours ouvrables | Résultat (délai = 3) |
 |-----------|--------------|----------------|---------------------|
-| Lundi 9h | Jeudi 9h | 3 (Mar + Mer + Jeu) | ✅ Accepté |
-| Lundi 9h | Mercredi 9h | 2 (Mar + Mer) | ❌ Rejeté auto |
-| Vendredi 9h | Mercredi suivant | 3 (Lun + Mar + Mer) | ✅ Accepté |
-| Jeudi 9h | Lundi suivant (vendredi = férié) | 2 (Lun) | ❌ Rejeté auto |
-| Tout moment | Maladie urgente | — | ❌ Rejeté auto → contacter RH directement |
+| Lundi | Jeudi | 3 | ✅ Accepté |
+| Lundi | Mercredi | 2 | ❌ Rejeté auto |
+| Vendredi | Mercredi suivant | 3 | ✅ Accepté |
 
-### Mise à jour annuelle des jours fériés
-
-Dans `Config.gs`, mettre à jour `JOURS_FERIES` chaque début d'année avec les dates exactes, notamment les fêtes islamiques à dates variables :
-- Korité (fin Ramadan)
-- Tabaski (Aïd el-Kébir)
-- Maouloud (naissance du Prophète)
-- Tamkharit (Nouvel An islamique)
+> Pour toute urgence → contacter la RH directement.
 
 ---
 
-## 11. Protections et sécurité
+## 12. Protections et sécurité
 
-### Accès par colonne
-
-| Colonne | Éditeurs autorisés | Type de protection |
-|---------|--------------------|-------------------|
-| A–P (données formulaire) | Avertissement seul | Soft — ne bloque pas les soumissions formulaire |
-| **Q** Avis Supérieur | Emails dans `SUP_NOMS` | **Strict** — accès refusé aux autres |
-| **R** Avis RH | `EMAIL_RH` | **Strict** |
-| **S** Avis Présidence | `EMAIL_PRESIDENCE` | **Strict** |
-| **T** Commentaire/Motif | Tous les validateurs | **Strict** |
-| U–AC (colonnes système) | Avertissement seul | Soft — réservé au script |
-
-> Le script (propriétaire du spreadsheet) contourne toujours les protections pour écrire ses données.
-
-### Dropdowns colonnes Q, R, S
-
-Valeurs autorisées : `En attente` · `Approuvé` · `Rejeté`
-Toute saisie libre hors de cette liste est **refusée** par Sheets (`setAllowInvalid(false)`).
+| Colonne | Éditeurs autorisés | Protection |
+|---------|--------------------|-----------|
+| A–P | Avertissement | Soft (ne bloque pas le formulaire) |
+| Q | Script uniquement | Strict — résolu automatiquement |
+| R Avis Sup. | Emails dans `SUP_NOMS` | Strict |
+| S Avis RH | `EMAIL_RH` | Strict |
+| T Avis Présidence | `EMAIL_PRESIDENCE` | Strict |
+| U Commentaire | Tous validateurs | Strict |
+| V–AD (système) | Avertissement | Réservé au script |
 
 ### Gardes dans le code
 
-| Situation | Mécanisme de protection |
-|-----------|------------------------|
-| Double-clic lien email | Vérifie colonne encore "En attente" avant traitement |
-| Ré-édition après décision | `onEdit` annule la cellule + toast |
-| Validation hors ordre hiérarchique | Annulation cellule + toast explicatif |
-| Rejet sans motif | Annulation cellule + toast |
-| Deux triggers simultanés | `LockService.getScriptLock()` — séquentialise les exécutions |
-| Drive ID absent | Guard `if (driveDossierID)` — workflow continue sans Drive |
+| Situation | Mécanisme |
+|-----------|-----------|
+| Double-clic lien email | Vérifie colonne encore "En attente" |
+| Ré-édition après décision | `onEdit` annule + toast |
+| Validation hors ordre | Annulation + toast |
+| Rejet sans motif | Annulation + toast |
+| Exécutions simultanées | `LockService.getScriptLock()` |
 
 ---
 
-## 12. Relances automatiques
+## 13. Relances automatiques
 
-Un trigger s'exécute **chaque jour à 8h00** et renvoie l'email de notification au validateur en attente si toutes les conditions sont réunies :
-
-- Statut global de la demande = `En cours`
-- Un niveau est en `En attente` avec un token valide (non utilisé, non invalidé)
-- La date de début de l'absence est **dans le futur**
-- Au moins `DELAI_RELANCE_JOURS` jours se sont écoulés depuis la dernière relance (ou la soumission initiale)
+Trigger quotidien **8h00** — renvoie l'email au validateur en attente si :
+- Statut global = `En cours`
+- Niveau en `En attente` avec token valide
+- Au moins `DELAI_RELANCE_JOURS` jours depuis la dernière relance ou la soumission
 
 ---
 
-## 13. Menu Absences — outils d'administration
-
-Accessible depuis le Google Sheet après ouverture (rechargez la page si absent).
+## 14. Menu Absences — outils d'administration
 
 | Option | Description |
 |--------|-------------|
-| **Filtrer par mois / année** | Masque les lignes hors période (ex : `3/2026` ou `2026`) |
+| **Filtrer par mois / année** | Masque les lignes hors période |
 | **Tout afficher** | Réaffiche toutes les lignes |
-| **⚙️ Activer validation manuelle** | Installe le trigger `traiterDecisionManuelle` (à faire une fois) |
-| **Renvoyer une validation** | Renvoie l'email au validateur en attente si le lien est perdu |
-| **Reprendre un traitement échoué** | Rejoue `onFormSubmit` sur une ligne (régénère tokens et Drive si absents) |
-| **Nettoyer les triggers en double** | Supprime les triggers dupliqués pour éviter les doubles traitements |
-| **Reconfigurer les couleurs** | Réapplique les couleurs conditionnelles sur Q / R / S / Y |
-| **Reconfigurer les protections** | Réapplique toutes les protections et dropdowns (après ajout de supérieur par ex.) |
+| **⚙️ Activer validation manuelle** | Installe le trigger `traiterDecisionManuelle` |
+| **Renvoyer une validation** | Renvoie l'email si le lien est perdu |
+| **Reprendre un traitement échoué** | Rejoue `onFormSubmit` (régénère tokens/Drive) |
+| **Nettoyer les triggers en double** | Supprime les triggers dupliqués |
+| **Reconfigurer les couleurs** | Réapplique couleurs conditionnelles Q/R/S/T/Z |
+| **Reconfigurer les protections** | Réapplique protections et dropdowns |
 
 ---
 
-## 14. Dépannage
+## 15. Dépannage
 
 ### Le formulaire ne déclenche rien
-
-1. Vérifier que le trigger `onFormSubmit` est installé : Apps Script → **Déclencheurs**
+1. Vérifier le trigger `onFormSubmit` : Apps Script → **Déclencheurs**
 2. Relancer `initialiserProjet()` si absent
-3. Vérifier `SHEET_REPONSES_ID` et `ONGLET_REPONSES` dans `Config.gs`
-4. Consulter les logs : Apps Script → **Exécutions**
+3. Vérifier `SHEET_REPONSES_ID` et `ONGLET_REPONSES`
+4. Consulter : Apps Script → **Exécutions**
+
+### Mauvais thème email (mauvaise entreprise)
+1. Vérifier que le nom du service dans le formulaire correspond **exactement** à une clé de `SERVICE_SUP_MAP` (majuscules, accents, espaces)
+2. Vérifier que `nomOrg` dans `SERVICE_SUP_MAP` vaut `'Massaka SAS'` ou `'Agribusiness TV'` (orthographe exacte)
+3. Consulter les logs : chercher `[INFO][Notifications]` pour voir `org=`
 
 ### Les emails ne partent pas
-
-1. Vérifier les quotas Gmail : 100/jour (compte personnel), 1 500/jour (Workspace)
-2. Vérifier les adresses dans `Config.gs` (`EMAIL_RH`, `EMAIL_PRESIDENCE`, `SUP_NOMS`)
-3. Vérifier que les adresses email n'ont pas de fautes de frappe (espaces, majuscules)
+1. Vérifier les quotas Gmail (100/j compte perso, 1 500/j Workspace)
+2. Vérifier les adresses dans `Config.gs` (sans espaces ni fautes)
 
 ### La validation manuelle ne réagit pas
+1. Vérifier le trigger : menu **Absences** → **⚙️ Activer validation manuelle**
+2. Vérifier l'orthographe : `Approuvé` (accent é) / `Rejeté`
+3. Vérifier les droits sur la colonne (R, S ou T)
+4. Menu **Absences** → **Nettoyer les triggers en double** si doublon
 
-1. Vérifier que le trigger est bien installé : menu **Absences** → **⚙️ Activer validation manuelle**
-2. Vérifier que vous êtes bien dans la liste des éditeurs de la colonne (Q, R ou S)
-3. Vérifier l'orthographe exacte : `Approuvé` (accent sur le é) ou `Rejeté`
-4. Si doublon de trigger : menu **Absences** → **Nettoyer les triggers en double**
-5. Consulter les logs Apps Script pour voir les messages d'erreur
+### Le dossier Drive n'est pas créé
+> Normal si la demande est en cours ou rejetée — Drive uniquement à l'approbation finale.
+1. Vérifier `DRIVE_DOSSIER_RACINE` et `DRIVE_DOSSIER_TEMPLATE`
+2. Le dossier template doit contenir **exactement 1** Google Doc
+3. Droits d'édition requis sur les dossiers
 
-### Le dossier Drive n'est pas créé après approbation Présidence
+### Demande bloquée "En cours"
+1. Menu **Absences** → **Renvoyer une validation** (référence MSK-AAAA-XXXX)
+2. Si token corrompu → **Reprendre un traitement échoué**
 
-> Le dossier et le doc Drive sont créés **uniquement lors de l'approbation finale par la Présidence**. Pour les demandes en cours ou rejetées, l'absence de dossier Drive est normale.
-
-1. Vérifier `DRIVE_DOSSIER_RACINE` et `DRIVE_DOSSIER_TEMPLATE` dans `Config.gs`
-2. Vérifier que le dossier template contient **exactement un seul** fichier Google Doc
-3. Vérifier que le compte propriétaire du script a les droits d'édition sur les dossiers
-4. Si un log `[WARN]` signale plusieurs fichiers dans le template, supprimer les fichiers en trop
-
-### Le doc final ne montre pas la décision
-
-Vérifier que le template contient bien les balises `{{AVIS_SUPERIEUR}}`, `{{AVIS_RH}}`, `{{AVIS_PRESIDENCE}}`, `{{COMMENTAIRE}}`, `{{DATE_CLOTURE}}` telles quelles (non remplacées, non supprimées accidentellement).
-
-### Une demande est bloquée "En cours" indéfiniment
-
-1. Menu **Absences** → **Renvoyer une validation** → saisir la référence (ABS-AAAA-XXXX)
-2. Si le token est invalide ou corrompu → **Reprendre un traitement échoué** (régénère tout)
-
-### Rejet automatique inattendu le week-end
-
-Vérifier que les jours fériés concernés sont bien listés dans `JOURS_FERIES` (Config.gs).
-Le système ne compte pas les samedis, dimanches et jours fériés dans le délai.
+### Rejet automatique inattendu
+Vérifier que les jours fériés concernés sont dans `JOURS_FERIES` (Config.gs).
 
 ---
 
-## 15. Maintenance annuelle
+## 16. Maintenance annuelle
 
-À faire chaque début d'année (janvier) :
+À faire chaque janvier :
 
-- [ ] Mettre à jour `JOURS_FERIES` dans `Config.gs` avec les dates de la nouvelle année
-  - Inclure les fêtes islamiques (Korité, Tabaski, Maouloud, Tamkharit) dont les dates changent chaque année
-- [ ] Vérifier et mettre à jour `SUP_NOMS` si des responsables ont changé de poste ou quitté
-- [ ] Vérifier `EMAIL_RH` et `EMAIL_PRESIDENCE` si les responsables ont changé
-- [ ] Menu **Absences** → **Reconfigurer les protections** (après tout changement dans `SUP_NOMS`)
-- [ ] Archiver ou filtrer les demandes de l'année précédente (menu **Filtrer par mois / année**)
-- [ ] Vérifier les quotas Gmail si le volume de demandes augmente (envisager Workspace si besoin)
+- [ ] Mettre à jour `JOURS_FERIES` (Korité, Tabaski, Maouloud, Tamkharit changent chaque année)
+- [ ] Mettre à jour `SUP_NOMS` si des responsables ont changé
+- [ ] Vérifier `EMAIL_RH` et `EMAIL_PRESIDENCE`
+- [ ] Menu **Absences** → **Reconfigurer les protections**
+- [ ] Archiver ou filtrer les demandes de l'année précédente
 
 ---
 
 ## Licence
 
-Usage interne — Entreprise 1. Tous droits réservés.
+Usage interne — Massaka SAS / Agribusiness TV. Tous droits réservés.

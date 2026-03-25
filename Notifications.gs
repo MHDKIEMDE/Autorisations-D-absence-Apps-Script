@@ -101,7 +101,7 @@ function cssEmail(theme) {
 
 // Bloc HTML recapitulatif — adapté selon le type de permission et le theme
 function blocRecapitulatif(demande, theme) {
-  const c  = theme ? theme.couleur      : '#016579';
+  const c  = theme ? theme.couleurAccent : '#016579';
   const cb = theme ? theme.couleurBadge : '#f8c542';
 
   const estOrdinaire = demande.typePerm === 'Permission ordinaire';
@@ -203,7 +203,7 @@ function envoyerAccuseReceptionEmploye(demande) {
     { htmlBody: htmlBody, name: nomOrg + ' RH' }
   );
 
-  log('OK', 'Notifications', `Email envoye a ${demande.emailEmploye} - accuse reception`);
+  log('OK', 'Notifications', `Accuse reception → ${demande.emailEmploye} | org=${nomOrg} | service=${demande.service} | ref=${demande.idDemande}`);
 }
 
 
@@ -262,12 +262,12 @@ function envoyerNotificationValidateur(demande, niveau, token) {
           <div class="section-title">Votre décision</div>
 
           <!-- Option 1 : Validation directe dans le tableau (recommandée) -->
-          <div style="background:#f0f9fc;border:2px solid ${theme.couleur};border-radius:8px;padding:16px;margin-bottom:16px">
-            <div style="font-size:12px;font-weight:700;color:${theme.couleur};text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">
+          <div style="background:#f0f9fc;border:2px solid ${theme.couleurAccent};border-radius:8px;padding:16px;margin-bottom:16px">
+            <div style="font-size:12px;font-weight:700;color:${theme.couleurAccent};text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">
               ✏️ Option 1 — Directement dans le tableau (recommandé)
             </div>
             <a href="https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_REPONSES_ID}/edit"
-               style="display:block;text-align:center;padding:13px;color:${theme.couleurTexte};background:${theme.couleur};border-radius:6px;text-decoration:none;font-weight:700;font-size:14px;">
+               style="display:block;text-align:center;padding:13px;color:${theme.couleurTexte};background:${theme.couleurAccent};border-radius:6px;text-decoration:none;font-weight:700;font-size:14px;">
               📊 Ouvrir le tableau de suivi
             </a>
             <p style="font-size:12px;color:#555555;margin-top:8px;line-height:1.5">
@@ -283,7 +283,7 @@ function envoyerNotificationValidateur(demande, niveau, token) {
             </div>
             <div class="btn-block">
               <a href="${lienApprouver}"
-                 style="display:block;text-align:center;padding:12px;color:${theme.couleurTexte};background:${theme.couleur};border-radius:6px;text-decoration:none;font-weight:700;font-size:14px;">
+                 style="display:block;text-align:center;padding:12px;color:${theme.couleurTexte};background:${theme.couleurAccent};border-radius:6px;text-decoration:none;font-weight:700;font-size:14px;">
                 ✅ APPROUVER
               </a>
             </div>
@@ -313,7 +313,7 @@ function envoyerNotificationValidateur(demande, niveau, token) {
       { htmlBody: htmlBody, name: nomOrg + ' RH' }
     );
 
-    log('OK', 'Notifications', `Email envoye a ${to} - niveau ${niveau}`);
+    log('OK', 'Notifications', `Validateur notifie → ${to} | niveau=${niveau} | org=${nomOrg} | ref=${demande.idDemande}`);
   });
 }
 
@@ -393,5 +393,5 @@ function envoyerConfirmationFinaleEmploye(demande, decision, motif) {
 
   GmailApp.sendEmail(demande.emailEmploye, sujet, '', options);
 
-  log('OK', 'Notifications', `Email envoye a ${demande.emailEmploye} - decision finale (${decision})`);
+  log('OK', 'Notifications', `Confirmation finale → ${demande.emailEmploye} | decision=${decision} | org=${nomOrg} | ref=${demande.idDemande}`);
 }
