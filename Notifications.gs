@@ -138,8 +138,17 @@ function blocRecapitulatif(demande, theme) {
 // 1. Accuse de reception a l'employe
 // ============================================================
 function envoyerAccuseReceptionEmploye(demande) {
-  const theme  = getThemeEmail(demande.emailSuperieur);
-  const nomOrg = theme.nomOrg;
+  const theme    = getThemeEmail(demande.emailSuperieur);
+  const nomOrg   = theme.nomOrg;
+  const workflow = ((CONFIG.SERVICE_SUP_MAP || {})[demande.service] || {}).workflow || 'SUP_RH_PRES';
+
+  const texteEtapes = {
+    'SUP_RH_PRES': 'Votre demande sera examinée successivement par votre supérieur hiérarchique, le service RH, puis la présidence.',
+    'RH_PRES':     'Votre demande sera examinée par le service RH, puis validée par la présidence.',
+    'PRES':        'Votre demande sera examinée directement par la présidence.',
+    'PRES_RH':     'Votre demande sera examinée en premier par la présidence, puis validée définitivement par le service RH.'
+  }[workflow] || 'Votre demande est en cours de traitement.';
+
   const htmlBody = `
     <!DOCTYPE html><html><head><meta charset="UTF-8">${cssEmail(theme)}</head>
     <body><div class="wrap">
@@ -158,8 +167,7 @@ function envoyerAccuseReceptionEmploye(demande) {
         ${blocRecapitulatif(demande, theme)}
         <div class="section-title">Prochaines étapes</div>
         <p style="font-size:14px;color:#555555;line-height:1.6">
-          Votre demande sera examinée successivement par votre supérieur hiérarchique,
-          le service RH, puis la présidence.<br><br>
+          ${texteEtapes}<br><br>
           <strong>Vous serez informé(e) uniquement en cas de rejet ou d'approbation finale.</strong>
         </p>
         <p class="note">
