@@ -10,8 +10,27 @@ function getNomOrg(service) {
   return ((CONFIG.SERVICE_SUP_MAP || {})[service] || {}).nomOrg || CONFIG.NOM_ORG;
 }
 
+// Themes par defaut par organisation
+var THEMES_ORG = {
+  'Massaka SAS': {
+    couleur:       '#000000',
+    couleurBadge:  '#f8c542',
+    couleurAccent: '#016579',
+    couleurTexte:  '#ffffff',
+    police:        "'Montserrat', 'Segoe UI', Arial, sans-serif"
+  },
+  'Agribusiness TV': {
+    couleur:       '#000000',
+    couleurBadge:  '#B9EB57',
+    couleurAccent: '#015438',
+    couleurTexte:  '#ffffff',
+    police:        "'Proxima Nova', 'Segoe UI', Arial, sans-serif"
+  }
+};
+
 // Retourne le theme couleur/police selon la Presidence du superieur
-function getThemeEmail(emailSup) {
+// Le parametre service permet de choisir le theme org par defaut si PRESIDENCE_MAP est vide
+function getThemeEmail(emailSup, service) {
   const map  = CONFIG.PRESIDENCE_MAP || {};
   const pres = emailSup ? map[emailSup] : null;
   if (pres && pres.couleur) {
@@ -20,19 +39,14 @@ function getThemeEmail(emailSup) {
       couleurBadge:  pres.couleurBadge  || '#f8c542',
       couleurAccent: pres.couleurAccent || pres.couleur,
       couleurTexte:  pres.couleurTexte  || '#ffffff',
-      police:        pres.police        || "'Segoe UI', Arial, sans-serif",
+      police:        pres.police        || "'Montserrat', 'Segoe UI', Arial, sans-serif",
       nomOrg:        pres.nomOrg        || CONFIG.NOM_ORG
     };
   }
-  // Theme par defaut
-  return {
-    couleur:       '#016579',
-    couleurBadge:  '#f8c542',
-    couleurAccent: '#016579',
-    couleurTexte:  '#ffffff',
-    police:        "'Segoe UI', Arial, sans-serif",
-    nomOrg:        CONFIG.NOM_ORG
-  };
+  // Theme par defaut selon l'organisation
+  const nomOrg = ((CONFIG.SERVICE_SUP_MAP || {})[service] || {}).nomOrg || CONFIG.NOM_ORG;
+  const base   = THEMES_ORG[nomOrg] || THEMES_ORG['Massaka SAS'];
+  return Object.assign({}, base, { nomOrg: nomOrg });
 }
 
 // CSS partage injecte dans tous les emails HTML
@@ -143,7 +157,7 @@ function blocRecapitulatif(demande, theme) {
 // 1. Accuse de reception a l'employe
 // ============================================================
 function envoyerAccuseReceptionEmploye(demande) {
-  const theme    = getThemeEmail(demande.emailSuperieur);
+  const theme    = getThemeEmail(demande.emailSuperieur, demande.service);
   const nomOrg   = getNomOrg(demande.service);
   const workflow = ((CONFIG.SERVICE_SUP_MAP || {})[demande.service] || {}).workflow || 'SUP_RH_PRES';
 
@@ -219,7 +233,7 @@ function envoyerNotificationValidateur(demande, niveau, token) {
     destinations.push({ to: pres.email, nom: pres.nom });
   }
 
-  const theme  = getThemeEmail(demande.emailSuperieur);
+  const theme  = getThemeEmail(demande.emailSuperieur, demande.service);
   const nomOrg = getNomOrg(demande.service);
   const lienApprouver = `${CONFIG.WEBAPP_URL}?token=${token}&action=APPROUVE`;
   const lienRejeter   = `${CONFIG.WEBAPP_URL}?token=${token}`;
@@ -311,7 +325,7 @@ function envoyerNotificationValidateur(demande, niveau, token) {
 //    Uniquement en cas de rejet (tout niveau) ou approbation Presidence.
 // ============================================================
 function envoyerConfirmationFinaleEmploye(demande, decision, motif) {
-  const theme       = getThemeEmail(demande.emailSuperieur);
+  const theme       = getThemeEmail(demande.emailSuperieur, demande.service);
   const nomOrg      = getNomOrg(demande.service);
   const estApprouve = decision === 'Approuve' || decision === 'Approuvé';
 

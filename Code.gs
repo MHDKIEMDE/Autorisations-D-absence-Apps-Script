@@ -12,8 +12,12 @@ function onFormSubmit(e) {
     // ----------------------------------------------------------
     // 1. Lire les données brutes nécessaires à la règle 72h
     // ----------------------------------------------------------
-    const typePerm   = sheet.getRange(row, CONFIG.COL.TYPE_PERM).getValue();
-    const dateDebut  = sheet.getRange(row, CONFIG.COL.DATE_DEBUT).getValue();
+    const typePerm     = sheet.getRange(row, CONFIG.COL.TYPE_PERM).getValue();
+    // "Permission ordinaire" stocke ses dates dans DATE_DEBUT_ORD (col O), pas DATE_DEBUT (col I)
+    const colDateDebut = (typePerm === 'Permission ordinaire')
+      ? CONFIG.COL.DATE_DEBUT_ORD
+      : CONFIG.COL.DATE_DEBUT;
+    const dateDebut  = sheet.getRange(row, colDateDebut).getValue();
     const heureDebut = sheet.getRange(row, CONFIG.COL.HEURE_DEBUT).getValue();
 
     // ----------------------------------------------------------
@@ -24,12 +28,14 @@ function onFormSubmit(e) {
     const service       = sheet.getRange(row, CONFIG.COL.SERVICE).getValue().toString().trim();
     const serviceConfig = (CONFIG.SERVICE_SUP_MAP || {})[service] || {};
     const emailSup      = serviceConfig.sup  || '';
-    const workflow      = serviceConfig.workflow || 'SUP_RH_PRES';
+    // Service inconnu : fallback RH_PRES (évite de bloquer un envoi vers un supérieur inexistant)
+    const workflow      = serviceConfig.workflow || 'RH_PRES';
 
     if (!serviceConfig.workflow) {
       log('WARN', 'onFormSubmit',
-        `Service "${service}" absent de SERVICE_SUP_MAP — workflow par défaut (SUP_RH_PRES) appliqué ligne ${row}`);
+        `Service "${service}" absent de SERVICE_SUP_MAP — workflow RH_PRES appliqué par défaut, ligne ${row}`);
     }
+
     ecrireColonne(sheet, row, CONFIG.COL.EMAIL_SUP, emailSup);
 
     // ----------------------------------------------------------
@@ -145,15 +151,19 @@ function onFormSubmit(e) {
     // 6. Notifier le premier validateur selon le workflow du service
     //    (le dossier Drive est créé uniquement à l'approbation finale)
     // ----------------------------------------------------------
+    // Construire l'objet demande une seule fois et injecter emailSup directement
+    // (évite un problème de timing entre ecrireColonne et getValues)
+    const demande = Object.assign(lireDemande(sheet, row), { emailSuperieur: emailSup });
+
     const tokenPremier = { Superieur: tokenSup, RH: tokenRH, Presidence: tokenPres }[premierNiveau];
-    envoyerNotificationValidateur(lireDemande(sheet, row), premierNiveau, tokenPremier);
+    envoyerNotificationValidateur(demande, premierNiveau, tokenPremier);
     log('INFO', 'onFormSubmit',
       `Workflow "${workflow}" — premier validateur notifié : ${premierNiveau}`);
 
     // ----------------------------------------------------------
     // 8. Accusé de réception à l'employé
     // ----------------------------------------------------------
-    envoyerAccuseReceptionEmploye(lireDemande(sheet, row));
+    envoyerAccuseReceptionEmploye(demande);
 
     log('OK', 'onFormSubmit',
       `Demande ${idDemande} initialisée avec succès - ligne ${row}`);

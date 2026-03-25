@@ -63,7 +63,18 @@ function creerDossierEtDoc(demande) {
 
 
 function remplirTemplate(docId, demande) {
-  const doc  = DocumentApp.openById(docId);
+  // Drive peut mettre quelques secondes a propager un nouveau fichier apres makeCopy()
+  // On reessaie jusqu'a 3 fois avec 2s d'intervalle
+  let doc;
+  for (let tentative = 1; tentative <= 3; tentative++) {
+    try {
+      doc = DocumentApp.openById(docId);
+      break;
+    } catch (e) {
+      if (tentative === 3) throw e;
+      Utilities.sleep(2000);
+    }
+  }
   const body = doc.getBody();
 
   const remplacements = {
