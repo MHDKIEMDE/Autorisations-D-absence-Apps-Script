@@ -5,11 +5,6 @@
 // Toute la configuration email est dans Config.gs (CONFIG).
 // ============================================================
 
-// Retourne le nom de l'organisation selon le service de l'employe
-function getNomOrg(service) {
-  return ((CONFIG.SERVICE_SUP_MAP || {})[service] || {}).nomOrg || CONFIG.NOM_ORG;
-}
-
 // Themes par defaut par organisation
 var THEMES_ORG = {
   'Massaka SAS': {
@@ -28,9 +23,11 @@ var THEMES_ORG = {
   }
 };
 
-// Retourne le theme couleur/police selon la Presidence du superieur
-// Le parametre service permet de choisir le theme org par defaut si PRESIDENCE_MAP est vide
-function getThemeEmail(emailSup, service) {
+// Retourne le theme a partir du nomOrg du demandeur.
+// nomOrg est calcule une seule fois dans lireDemande (via SERVICE_SUP_MAP).
+// Si PRESIDENCE_MAP est renseigne pour ce superviseur, son theme prend le dessus.
+function getThemeEmail(nomOrg, emailSup) {
+  // Override eventuel via PRESIDENCE_MAP (pour usage futur)
   const map  = CONFIG.PRESIDENCE_MAP || {};
   const pres = emailSup ? map[emailSup] : null;
   if (pres && pres.couleur) {
@@ -40,20 +37,21 @@ function getThemeEmail(emailSup, service) {
       couleurAccent: pres.couleurAccent || pres.couleur,
       couleurTexte:  pres.couleurTexte  || '#ffffff',
       police:        pres.police        || "'Montserrat', 'Segoe UI', Arial, sans-serif",
-      nomOrg:        pres.nomOrg        || CONFIG.NOM_ORG
+      nomOrg:        pres.nomOrg        || nomOrg || CONFIG.NOM_ORG
     };
   }
-  // Theme par defaut selon l'organisation
-  const nomOrg = ((CONFIG.SERVICE_SUP_MAP || {})[service] || {}).nomOrg || CONFIG.NOM_ORG;
-  const base   = THEMES_ORG[nomOrg] || THEMES_ORG['Massaka SAS'];
-  return Object.assign({}, base, { nomOrg: nomOrg });
+  // Theme base sur l'organisation du demandeur
+  const org  = nomOrg || CONFIG.NOM_ORG;
+  const base = THEMES_ORG[org] || THEMES_ORG['Massaka SAS'];
+  return Object.assign({}, base, { nomOrg: org });
 }
 
 // CSS partage injecte dans tous les emails HTML
 function cssEmail(theme) {
-  const c  = theme.couleur;
-  const cb = theme.couleurBadge;
-  const ct = theme.couleurTexte;
+  const c  = theme.couleur;        // fond entête (noir)
+  const ca = theme.couleurAccent;  // boutons, titres section, résultat OK
+  const cb = theme.couleurBadge;   // badge
+  const ct = theme.couleurTexte;   // texte entête
   const p  = theme.police;
   return `
     <style>
@@ -71,7 +69,7 @@ function cssEmail(theme) {
       .body { background: #ffffff; padding: 28px 32px; border-radius: 0 0 8px 8px;
               box-shadow: 0 2px 8px rgba(0,0,0,.08); }
       .section-title {
-        font-size: 13px; font-weight: 700; color: ${c};
+        font-size: 13px; font-weight: 700; color: ${ca};
         text-transform: uppercase; letter-spacing: .5px;
         border-bottom: 2px solid #f0f0f0; padding-bottom: 6px; margin: 20px 0 12px;
       }
@@ -85,11 +83,11 @@ function cssEmail(theme) {
         border-radius: 6px; text-decoration: none; text-align: center;
         font-family: ${p};
       }
-      .btn-ok  { background: ${c}; color: ${ct}; }
+      .btn-ok  { background: ${ca}; color: #ffffff; }
       .btn-ko  { background: #dc3545; color: #ffffff; }
       .btn-full { display: block; width: 100%; }
       .note { font-size: 12px; color: #999999; margin-top: 20px; line-height: 1.5; }
-      .result-ok { font-size: 22px; font-weight: 800; color: ${c}; margin: 8px 0; }
+      .result-ok { font-size: 22px; font-weight: 800; color: ${ca}; margin: 8px 0; }
       .result-ko { font-size: 22px; font-weight: 800; color: #dc3545; margin: 8px 0; }
       .motif-box {
         background: #fff5f5; border-left: 4px solid #dc3545;
@@ -157,8 +155,8 @@ function blocRecapitulatif(demande, theme) {
 // 1. Accuse de reception a l'employe
 // ============================================================
 function envoyerAccuseReceptionEmploye(demande) {
-  const theme    = getThemeEmail(demande.emailSuperieur, demande.service);
-  const nomOrg   = getNomOrg(demande.service);
+  const nomOrg   = demande.nomOrg || CONFIG.NOM_ORG;
+  const theme    = getThemeEmail(nomOrg, demande.emailSuperieur);
   const workflow = ((CONFIG.SERVICE_SUP_MAP || {})[demande.service] || {}).workflow || 'SUP_RH_PRES';
 
   const texteEtapes = {
@@ -233,8 +231,8 @@ function envoyerNotificationValidateur(demande, niveau, token) {
     destinations.push({ to: pres.email, nom: pres.nom });
   }
 
-  const theme  = getThemeEmail(demande.emailSuperieur, demande.service);
-  const nomOrg = getNomOrg(demande.service);
+  const nomOrg = demande.nomOrg || CONFIG.NOM_ORG;
+  const theme  = getThemeEmail(nomOrg, demande.emailSuperieur);
   const lienApprouver = `${CONFIG.WEBAPP_URL}?token=${token}&action=APPROUVE`;
   const lienRejeter   = `${CONFIG.WEBAPP_URL}?token=${token}`;
 
@@ -325,8 +323,8 @@ function envoyerNotificationValidateur(demande, niveau, token) {
 //    Uniquement en cas de rejet (tout niveau) ou approbation Presidence.
 // ============================================================
 function envoyerConfirmationFinaleEmploye(demande, decision, motif) {
-  const theme       = getThemeEmail(demande.emailSuperieur, demande.service);
-  const nomOrg      = getNomOrg(demande.service);
+  const nomOrg      = demande.nomOrg || CONFIG.NOM_ORG;
+  const theme       = getThemeEmail(nomOrg, demande.emailSuperieur);
   const estApprouve = decision === 'Approuve' || decision === 'Approuvé';
 
   const sujet = estApprouve

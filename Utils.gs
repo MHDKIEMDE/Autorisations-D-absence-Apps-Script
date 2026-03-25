@@ -63,7 +63,7 @@ function lireDemande(sheet, row) {
     nom:            r[CONFIG.COL.NOM           - 1] || '',
     prenom:         r[CONFIG.COL.PRENOM        - 1] || '',
     nomComplet:     `${r[CONFIG.COL.NOM - 1] || ''} ${r[CONFIG.COL.PRENOM - 1] || ''}`.trim(),
-    service:        r[CONFIG.COL.SERVICE       - 1] || '',
+    service:        (r[CONFIG.COL.SERVICE - 1] || '').toString().trim(),
     typePerm:       r[CONFIG.COL.TYPE_PERM     - 1] || '',
     typeAbsence:    r[CONFIG.COL.TYPE_ABSENCE  - 1] || '',
     motifLong:      r[CONFIG.COL.MOTIF_LONG    - 1] || '',
@@ -89,7 +89,9 @@ function lireDemande(sheet, row) {
     statutGlobal:   r[CONFIG.COL.STATUT_GLOBAL - 1] || '',
     dateCloture:    r[CONFIG.COL.DATE_CLOTURE  - 1] || null,
     driveDossierID: r[CONFIG.COL.DRIVE_DOSSIER - 1] || '',
-    driveDocID:     r[CONFIG.COL.DRIVE_DOC     - 1] || ''
+    driveDocID:     r[CONFIG.COL.DRIVE_DOC     - 1] || '',
+    // nomOrg calcule une seule fois — evite les re-lookups dans Notifications
+    nomOrg: ((CONFIG.SERVICE_SUP_MAP || {})[(r[CONFIG.COL.SERVICE - 1] || '').toString().trim()] || {}).nomOrg || CONFIG.NOM_ORG
   };
 }
 
