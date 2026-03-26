@@ -50,7 +50,7 @@ function creerDossierEtDoc(demande) {
     `${demande.idDemande} - ${demande.nomComplet}`,
     dossierDemande
   );
-  log('INFO', 'DriveManager', `Doc cree : ${docCopie.getId()} pour ${demande.idDemande}`);
+  log('INFO', 'DriveManager', `Doc cree : ${docCopie.getId()} | type: ${docCopie.getMimeType()} | pour ${demande.idDemande}`);
 
   // Remplir le template
   remplirTemplate(docCopie.getId(), demande);
@@ -63,16 +63,19 @@ function creerDossierEtDoc(demande) {
 
 
 function remplirTemplate(docId, demande) {
-  // Drive peut mettre quelques secondes a propager un nouveau fichier apres makeCopy()
-  // On reessaie jusqu'a 3 fois avec 2s d'intervalle
+  // Drive peut mettre plusieurs secondes a propager un nouveau fichier apres makeCopy()
+  // On attend d'abord que DriveApp voie le fichier, puis on ouvre avec DocumentApp
+  // Délai croissant : 2s, 3s, 4s, 5s, 6s entre chaque tentative = ~40s max
   let doc;
-  for (let tentative = 1; tentative <= 3; tentative++) {
+  for (let tentative = 1; tentative <= 6; tentative++) {
     try {
+      DriveApp.getFileById(docId); // échoue vite si le fichier n'est pas encore indexé
       doc = DocumentApp.openById(docId);
       break;
     } catch (e) {
-      if (tentative === 3) throw e;
-      Utilities.sleep(2000);
+      if (tentative === 6) throw e;
+      log('WARN', 'DriveManager', `Propagation Drive en attente (tentative ${tentative}/6) pour ${docId}`);
+      Utilities.sleep((tentative + 1) * 1000);
     }
   }
   const body = doc.getBody();

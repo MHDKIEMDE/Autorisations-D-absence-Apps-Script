@@ -439,3 +439,5 @@ function configurerProtections(ss, sheet) {
     Logger.log('[INFO][Setup] Alert ignoree (pas de contexte UI — normal si execute depuis l\'editeur).');
   }
 }
+
+
