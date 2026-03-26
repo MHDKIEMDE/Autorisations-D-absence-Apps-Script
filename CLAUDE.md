@@ -9,25 +9,29 @@ This is a **Google Apps Script (GAS) web application** — an absence authorizat
 ## Development Workflow
 
 ### Deploying Changes
+
 1. Open the Google Sheet → **Extensions → Apps Script**
 2. Copy/paste modified `.gs` files into the Apps Script editor
 3. Save and run `initialiserProjet()` if triggers or protections changed
 
 ### Deploying the Web App
+
 - **Apps Script → Deploy → New deployment**
   - Type: **Web App**, Execute as: **Me**, Access: **Anyone**
 - Copy the generated URL into `WEBAPP_URL` in [Config.gs](Config.gs)
 
 ### Initial Setup (one-time)
-Run `initialiserProjet()` in the Apps Script editor — installs triggers, creates the admin menu, sets column protections.
+
+Run `initialiserProjet()` in the Apps Script editor — installs the 3 triggers below, writes column headers, sets dropdowns and column protections.
 
 ### Testing
+
 1. Submit a test request via the linked Google Form
-2. Verify columns U–AC are populated in the sheet
+2. Verify columns V–AD are populated in the sheet
 3. Verify email notifications arrive and validation links work
 4. Use **Absences** menu → admin tools for manual recovery/testing
 
-### No linting or automated tests — validation is done manually via Google Apps Script editor.
+No linting or automated tests — validation is done manually via the Apps Script editor.
 
 ## Architecture
 
@@ -36,13 +40,24 @@ Run `initialiserProjet()` in the Apps Script editor — installs triggers, creat
 | Trigger | Handler | Location |
 |---|---|---|
 | Form submission | `onFormSubmit()` | [Code.gs](Code.gs) |
-| Sheet cell edit | `onEdit()` | [Code.gs](Code.gs) |
-| Daily time-based | reminders | [Relances.gs](Relances.gs) |
+| Sheet cell edit (installable) | `traiterDecisionManuelle()` | [Code.gs](Code.gs) |
+| Daily time-based (08h00) | `verifierEtRelancer()` | [Relances.gs](Relances.gs) |
 | Web app HTTP GET | `doGet()` | [WebApp.gs](WebApp.gs) |
 
 ### Validation Cascade
 
-All requests flow through a 3-level cascade: **Supervisor → RH → Presidency**. Each level receives a unique one-time token embedded in an email link. The same decision can also be made by editing the sheet directly (both modes coexist without conflict via token validation + LockService).
+All requests flow through a configurable cascade. Each level receives a unique one-time token embedded in an email link. The same decision can also be made by editing the sheet directly (both modes coexist without conflict via token validation + LockService).
+
+**Workflow circuits** — set per-service in `SERVICE_SUP_MAP`:
+
+| Circuit | Flow |
+|---|---|
+| `SUP_RH_PRES` | Supervisor → RH → Presidency (full cascade) |
+| `RH_PRES` | RH → Presidency (no supervisor) |
+| `PRES` | Presidency only (single final validator) |
+| `PRES_RH` | Presidency → RH (RH is final, e.g. Administration) |
+
+Skipped levels are auto-marked `Approuvé` so the cascade always closes cleanly.
 
 **Auto-rejection rule**: Any request with < 3 business days notice (excluding weekends and `JOURS_FERIES`) is rejected immediately on form submission without entering the cascade.
 
@@ -50,7 +65,7 @@ All requests flow through a 3-level cascade: **Supervisor → RH → Presidency*
 
 - **[Config.gs](Config.gs)** — Single source of truth for all parameters. This is the only file modified for a new deployment.
 - **[Workflow.gs](Workflow.gs)** — Cascade decision logic (who approves next, when to close, routing rules)
-- **[Code.gs](Code.gs)** — Trigger handlers (`onFormSubmit`, `onEdit`)
+- **[Code.gs](Code.gs)** — Trigger handlers (`onFormSubmit`, `traiterDecisionManuelle`)
 - **[WebApp.gs](WebApp.gs)** — HTML UI for email-link validation (approve/reject buttons)
 - **[Notifications.gs](Notifications.gs)** — HTML email generation with per-presidency theme support
 - **[DriveManager.gs](DriveManager.gs)** — Drive folder/doc creation and status-based folder movement
@@ -60,30 +75,35 @@ All requests flow through a 3-level cascade: **Supervisor → RH → Presidency*
 
 ### Google Sheet Column Structure
 
-Columns A–P are filled by the Google Form. Columns Q–T are filled by validators. Columns U–AC are managed automatically by the script.
+Columns A–P are filled by the Google Form. Column Q is resolved by the script from `SERVICE_SUP_MAP`. Columns R–U are decision/comment columns. Columns V–AD are managed automatically by the script.
 
-| Range | Source | Contents |
+| Col | Source | Contents |
 |---|---|---|
-| A–P | Form | Employee info, dates, service, supervisor email |
-| Q | Validator | Supervisor opinion (`En attente` / `Approuvé` / `Rejeté`) |
-| R | Validator | RH opinion |
-| S | Validator | Presidency opinion |
-| T | Validator | Rejection reason (required when rejected) |
-| U | Script | Request ID (`MSK-YYYY-NNNN`) |
-| V–X | Script | One-time tokens for supervisor / RH / presidency |
-| Y | Script | Global status (`En cours` / `Approuvé` / `Rejeté`) |
-| Z | Script | Closure date |
-| AA–AB | Script | Drive folder ID / document ID |
-| AC | Script | Last reminder date |
+| A–P | Form | Employee info, dates, service |
+| Q | Script | Supervisor email (auto-resolved from `SERVICE_SUP_MAP`) |
+| R | Validator | Supervisor opinion (`En attente` / `Approuvé` / `Rejeté`) |
+| S | Validator | RH opinion |
+| T | Validator | Presidency opinion |
+| U | Validator | Rejection reason / comment (unprotected, editable by all) |
+| V | Script | Request ID (`MSK-YYYY-NNNN`) |
+| W–Y | Script | One-time tokens for supervisor / RH / presidency |
+| Z | Script | Global status (`En cours` / `Approuvé` / `Rejeté`) |
+| AA | Script | Closure date |
+| AB | Script | Drive folder ID |
+| AC | Script | Google Doc ID |
+| AD | Script | Last reminder date |
 
-All column indices are centralized in `Config.gs` as `COL_*` constants.
+All column indices are centralized in `Config.gs` as `CONFIG.COL.*` constants (1-based). Never hardcode column numbers — always use `CONFIG.COL.*`.
 
 ### Routing Configuration (Config.gs)
 
-- `SERVICE_SUP_MAP` — maps each service/department to its supervisor email
-- `PRESIDENCE_MAP` — maps supervisor email to the appropriate presidency email
+- `SERVICE_SUP_MAP` — maps each service to `{ sup, workflow, nomOrg }`. `nomOrg` controls which org name appears in emails.
+- `PRESIDENCE_MAP` — maps supervisor email to presidency email + visual theme (colors, font). Falls back to `EMAIL_PRESIDENCE` if the supervisor is not listed.
 - `SUP_NOMS` — maps supervisor email to display name
-- Theme customization (colors, org name) per presidency is supported in `Notifications.gs`
+
+### DriveManager — Known Behavior
+
+`remplirTemplate()` retries `DocumentApp.openById()` up to 3 times with 2-second delays because Drive propagation after `makeCopy()` can lag. If the error **"Impossible d'accéder au document"** (line 71) persists, it means Drive took longer than 6 seconds to propagate the new file — use **Absences → Reprendre un traitement échoué** to retry.
 
 ### Notification Rules
 

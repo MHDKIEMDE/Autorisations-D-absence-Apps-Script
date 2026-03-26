@@ -25,23 +25,40 @@ var THEMES_ORG = {
 
 // Retourne le theme a partir du nomOrg du demandeur.
 // nomOrg est calcule une seule fois dans lireDemande (via SERVICE_SUP_MAP).
-// Si PRESIDENCE_MAP est renseigne pour ce superviseur, son theme prend le dessus.
+// Priorite : PRESIDENCE_MAP[emailSup] > PRESIDENCE_MAP par nomOrg > THEMES_ORG
 function getThemeEmail(nomOrg, emailSup) {
-  // Override eventuel via PRESIDENCE_MAP (pour usage futur)
-  const map  = CONFIG.PRESIDENCE_MAP || {};
-  const pres = emailSup ? map[emailSup] : null;
-  if (pres && pres.couleur) {
+  const map = CONFIG.PRESIDENCE_MAP || {};
+
+  // 1. Lookup par email du superviseur (clé directe dans PRESIDENCE_MAP)
+  const presBySup = emailSup ? map[emailSup] : null;
+  if (presBySup && presBySup.couleur) {
     return {
-      couleur:       pres.couleur,
-      couleurBadge:  pres.couleurBadge  || '#f8c542',
-      couleurAccent: pres.couleurAccent || pres.couleur,
-      couleurTexte:  pres.couleurTexte  || '#ffffff',
-      police:        pres.police        || "'Montserrat', 'Segoe UI', Arial, sans-serif",
-      nomOrg:        pres.nomOrg        || nomOrg || CONFIG.NOM_ORG
+      couleur:       presBySup.couleur,
+      couleurBadge:  presBySup.couleurBadge  || '#f8c542',
+      couleurAccent: presBySup.couleurAccent || presBySup.couleur,
+      couleurTexte:  presBySup.couleurTexte  || '#ffffff',
+      police:        presBySup.police        || "'Montserrat', 'Segoe UI', Arial, sans-serif",
+      nomOrg:        presBySup.nomOrg        || nomOrg || CONFIG.NOM_ORG
     };
   }
-  // Theme base sur l'organisation du demandeur
-  const org  = nomOrg || CONFIG.NOM_ORG;
+
+  // 2. Lookup par nomOrg dans les valeurs de PRESIDENCE_MAP
+  //    Permet d'appliquer le bon theme meme quand la cle est l'email du president
+  //    (et non l'email du superviseur) — cas RH, Presidence, relances, etc.
+  const org = nomOrg || CONFIG.NOM_ORG;
+  const presByOrg = Object.values(map).find(p => p.nomOrg === org);
+  if (presByOrg && presByOrg.couleur) {
+    return {
+      couleur:       presByOrg.couleur,
+      couleurBadge:  presByOrg.couleurBadge  || '#f8c542',
+      couleurAccent: presByOrg.couleurAccent || presByOrg.couleur,
+      couleurTexte:  presByOrg.couleurTexte  || '#ffffff',
+      police:        presByOrg.police        || "'Montserrat', 'Segoe UI', Arial, sans-serif",
+      nomOrg:        org
+    };
+  }
+
+  // 3. Fallback sur THEMES_ORG (themes par defaut integres)
   const base = THEMES_ORG[org] || THEMES_ORG['Massaka SAS'];
   return Object.assign({}, base, { nomOrg: org });
 }
