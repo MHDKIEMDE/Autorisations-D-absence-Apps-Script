@@ -115,11 +115,11 @@ const CONFIG = {
       couleurBoutonRejet:          '#dc3545',
       couleurBoutonApprouver:      '#7ED957',
       couleurTexteBoutonApprouver: '#ffffff',
-      couleurFondTableau:          '#edf7f2',
-      couleurTexteTableau:       '#1a3a2a',
+      couleurFondTableau:          '#015438',
+      couleurTexteTableau:       '#ffffff',
       couleurLabelOption1:       '#ffffff',
       couleurBoutonTableau:      '#7ED957',
-      couleurTexteBoutonTableau: '#ffffff',
+      couleurTexteBoutonTableau: '#000000',
       police:                    "'Proxima Nova', 'Segoe UI', Arial, sans-serif"
     },
 
