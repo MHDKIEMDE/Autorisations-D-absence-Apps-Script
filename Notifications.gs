@@ -5,23 +5,7 @@
 // Toute la configuration email est dans Config.gs (CONFIG).
 // ============================================================
 
-// Themes par defaut par organisation
-var THEMES_ORG = {
-  'Massaka SAS': {
-    couleur:       '#000000',
-    couleurBadge:  '#f8c542',
-    couleurAccent: '#016579',
-    couleurTexte:  '#ffffff',
-    police:        "'Montserrat', 'Segoe UI', Arial, sans-serif"
-  },
-  'Agribusiness TV': {
-    couleur:       '#000000',
-    couleurBadge:  '#B9EB57',
-    couleurAccent: '#015438',
-    couleurTexte:  '#ffffff',
-    police:        "'Proxima Nova', 'Segoe UI', Arial, sans-serif"
-  }
-};
+// Themes definis dans Config.gs → CONFIG.THEMES_ORG
 
 // Retourne le theme a partir du nomOrg du demandeur.
 // nomOrg est calcule une seule fois dans lireDemande (via SERVICE_SUP_MAP).
@@ -33,12 +17,24 @@ function getThemeEmail(nomOrg, emailSup) {
   const presBySup = emailSup ? map[emailSup] : null;
   if (presBySup && presBySup.couleur) {
     return {
-      couleur:       presBySup.couleur,
-      couleurBadge:  presBySup.couleurBadge  || '#f8c542',
-      couleurAccent: presBySup.couleurAccent || presBySup.couleur,
-      couleurTexte:  presBySup.couleurTexte  || '#ffffff',
-      police:        presBySup.police        || "'Montserrat', 'Segoe UI', Arial, sans-serif",
-      nomOrg:        presBySup.nomOrg        || nomOrg || CONFIG.NOM_ORG
+      couleur:            presBySup.couleur,
+      couleurBadge:       presBySup.couleurBadge       || '#f8c542',
+      couleurTexteBadge:  presBySup.couleurTexteBadge  || '#333333',
+      couleurAccent:      presBySup.couleurAccent      || presBySup.couleur,
+      couleurTexte:       presBySup.couleurTexte       || '#ffffff',
+      couleurFondMotif:    presBySup.couleurFondMotif    || '#f0f9fc',
+      couleurFondDuree:    presBySup.couleurFondDuree    || '#fff8e6',
+      couleurLabelDuree:   presBySup.couleurLabelDuree   || '#856404',
+      couleurBoutonRejet:          presBySup.couleurBoutonRejet          || '#dc3545',
+      couleurBoutonApprouver:      presBySup.couleurBoutonApprouver      || presBySup.couleurAccent || presBySup.couleur,
+      couleurTexteBoutonApprouver: presBySup.couleurTexteBoutonApprouver || presBySup.couleurTexte  || '#ffffff',
+      couleurFondTableau:        presBySup.couleurFondTableau        || '#f0f9fc',
+      couleurTexteTableau:       presBySup.couleurTexteTableau       || '#555555',
+      couleurLabelOption1:       presBySup.couleurLabelOption1       || presBySup.couleurAccent || presBySup.couleur,
+      couleurBoutonTableau:      presBySup.couleurBoutonTableau      || presBySup.couleurAccent || presBySup.couleur,
+      couleurTexteBoutonTableau: presBySup.couleurTexteBoutonTableau || presBySup.couleurTexte  || '#ffffff',
+      police:                    presBySup.police                    || "'Montserrat', 'Segoe UI', Arial, sans-serif",
+      nomOrg:             presBySup.nomOrg             || nomOrg || CONFIG.NOM_ORG
     };
   }
 
@@ -49,27 +45,40 @@ function getThemeEmail(nomOrg, emailSup) {
   const presByOrg = Object.values(map).find(p => p.nomOrg === org);
   if (presByOrg && presByOrg.couleur) {
     return {
-      couleur:       presByOrg.couleur,
-      couleurBadge:  presByOrg.couleurBadge  || '#f8c542',
-      couleurAccent: presByOrg.couleurAccent || presByOrg.couleur,
-      couleurTexte:  presByOrg.couleurTexte  || '#ffffff',
-      police:        presByOrg.police        || "'Montserrat', 'Segoe UI', Arial, sans-serif",
-      nomOrg:        org
+      couleur:            presByOrg.couleur,
+      couleurBadge:       presByOrg.couleurBadge       || '#f8c542',
+      couleurTexteBadge:  presByOrg.couleurTexteBadge  || '#333333',
+      couleurAccent:      presByOrg.couleurAccent      || presByOrg.couleur,
+      couleurTexte:       presByOrg.couleurTexte       || '#ffffff',
+      couleurFondMotif:    presByOrg.couleurFondMotif    || '#f0f9fc',
+      couleurFondDuree:    presByOrg.couleurFondDuree    || '#fff8e6',
+      couleurLabelDuree:   presByOrg.couleurLabelDuree   || '#856404',
+      couleurBoutonRejet:          presByOrg.couleurBoutonRejet          || '#dc3545',
+      couleurBoutonApprouver:      presByOrg.couleurBoutonApprouver      || presByOrg.couleurAccent || presByOrg.couleur,
+      couleurTexteBoutonApprouver: presByOrg.couleurTexteBoutonApprouver || presByOrg.couleurTexte  || '#ffffff',
+      couleurFondTableau:        presByOrg.couleurFondTableau        || '#f0f9fc',
+      couleurTexteTableau:       presByOrg.couleurTexteTableau       || '#555555',
+      couleurLabelOption1:       presByOrg.couleurLabelOption1       || presByOrg.couleurAccent || presByOrg.couleur,
+      couleurBoutonTableau:      presByOrg.couleurBoutonTableau      || presByOrg.couleurAccent || presByOrg.couleur,
+      couleurTexteBoutonTableau: presByOrg.couleurTexteBoutonTableau || presByOrg.couleurTexte  || '#ffffff',
+      police:                    presByOrg.police                    || "'Montserrat', 'Segoe UI', Arial, sans-serif",
+      nomOrg:              org
     };
   }
 
-  // 3. Fallback sur THEMES_ORG (themes par defaut integres)
-  const base = THEMES_ORG[org] || THEMES_ORG['Massaka SAS'];
-  return Object.assign({}, base, { nomOrg: org });
+  // 3. Aucune entree trouvee — retourne les valeurs par defaut
+  return { nomOrg: org };
 }
 
 // CSS partage injecte dans tous les emails HTML
 function cssEmail(theme) {
-  const c  = theme.couleur;        // fond entête (noir)
-  const ca = theme.couleurAccent;  // boutons, titres section, résultat OK
-  const cb = theme.couleurBadge;   // badge
-  const ct = theme.couleurTexte;   // texte entête
-  const p  = theme.police;
+  const c   = theme.couleur;                        // fond entête
+  const ca  = theme.couleurAccent;                  // boutons Approuver, titres section
+  const cb  = theme.couleurBadge;                   // fond badge
+  const ctb = theme.couleurTexteBadge || '#333333'; // texte badge
+  const ct  = theme.couleurTexte;                   // texte entête
+  const cr  = theme.couleurBoutonRejet || '#dc3545'; // bouton Rejeter
+  const p   = theme.police;
   return `
     <style>
       * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -79,7 +88,7 @@ function cssEmail(theme) {
       .header .logo { font-size: 22px; font-weight: 900; letter-spacing: 1px; }
       .header .sous-titre { font-size: 13px; opacity: .85; margin-top: 4px; }
       .header .badge {
-        display: inline-block; background: ${cb}; color: #333333;
+        display: inline-block; background: ${cb}; color: ${ctb};
         font-size: 12px; font-weight: 700; padding: 3px 12px;
         border-radius: 20px; margin-top: 10px;
       }
@@ -101,13 +110,13 @@ function cssEmail(theme) {
         font-family: ${p};
       }
       .btn-ok  { background: ${ca}; color: #ffffff; }
-      .btn-ko  { background: #dc3545; color: #ffffff; }
+      .btn-ko  { background: ${cr}; color: #ffffff; }
       .btn-full { display: block; width: 100%; }
       .note { font-size: 12px; color: #999999; margin-top: 20px; line-height: 1.5; }
       .result-ok { font-size: 22px; font-weight: 800; color: ${ca}; margin: 8px 0; }
-      .result-ko { font-size: 22px; font-weight: 800; color: #dc3545; margin: 8px 0; }
+      .result-ko { font-size: 22px; font-weight: 800; color: ${cr}; margin: 8px 0; }
       .motif-box {
-        background: #fff5f5; border-left: 4px solid #dc3545;
+        background: #fff5f5; border-left: 4px solid ${cr};
         padding: 12px 16px; border-radius: 4px; margin: 16px 0;
         font-size: 14px; color: #721c24;
       }
@@ -118,8 +127,11 @@ function cssEmail(theme) {
 
 // Bloc HTML recapitulatif — adapté selon le type de permission et le theme
 function blocRecapitulatif(demande, theme) {
-  const c  = theme ? theme.couleurAccent : '#016579';
-  const cb = theme ? theme.couleurBadge : '#f8c542';
+  const c   = theme ? theme.couleurAccent    : '#016579';
+  const cfm = theme ? theme.couleurFondMotif : '#f0f9fc';
+  const cfd = theme ? theme.couleurFondDuree : '#fff8e6';
+  const cld = theme ? theme.couleurLabelDuree : '#856404';
+  const cb  = theme ? theme.couleurBadge     : '#f8c542';
 
   const estOrdinaire = demande.typePerm === 'Permission ordinaire';
 
@@ -144,14 +156,14 @@ function blocRecapitulatif(demande, theme) {
     <table style="width:100%;border-collapse:collapse;margin:16px 0 20px">
       <tr>
         <td style="width:60%;padding-right:8px;vertical-align:top">
-          <div style="background:#f0f9fc;border-left:4px solid ${c};padding:12px 16px;border-radius:5px;height:100%">
+          <div style="background:${cfm};border-left:4px solid ${c};padding:12px 16px;border-radius:5px;height:100%">
             <div style="font-size:10px;font-weight:700;color:${c};text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Motif</div>
             <div style="font-size:15px;font-weight:700;color:#111111">${motif}</div>
           </div>
         </td>
         <td style="width:40%;vertical-align:top">
-          <div style="background:#fff8e6;border-left:4px solid ${cb};padding:12px 16px;border-radius:5px;height:100%">
-            <div style="font-size:10px;font-weight:700;color:#856404;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Durée</div>
+          <div style="background:${cfd};border-left:4px solid ${cb};padding:12px 16px;border-radius:5px;height:100%">
+            <div style="font-size:10px;font-weight:700;color:${cld};text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Durée</div>
             <div style="font-size:15px;font-weight:700;color:#333333">${duree}</div>
           </div>
         </td>
@@ -201,9 +213,18 @@ function envoyerAccuseReceptionEmploye(demande) {
         ${blocRecapitulatif(demande, theme)}
         <div class="section-title">Prochaines étapes</div>
         <p style="font-size:14px;color:#555555;line-height:1.6">
-          ${texteEtapes}<br><br>
-          <strong>Vous serez informé(e) uniquement en cas de rejet ou d'approbation finale.</strong>
+          ${texteEtapes}
         </p>
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:16px 0;border-collapse:collapse">
+          <tr>
+            <td style="background:${theme.couleurFondTableau || '#f0f9fc'};border-left:4px solid ${theme.couleurAccent};border-radius:6px;padding:12px 16px">
+              <span style="font-size:13px;font-weight:700;color:${theme.couleurAccent};text-transform:uppercase;letter-spacing:.5px">ℹ️ Information</span><br>
+              <span style="font-size:14px;color:${theme.couleurTexteTableau || '#555555'};line-height:1.6">
+                Vous serez informé(e) uniquement en cas de rejet ou d'approbation finale.
+              </span>
+            </td>
+          </tr>
+        </table>
         <p class="note">
           Référence : <strong>${demande.idDemande}</strong><br>
           Pour toute question, contactez le service RH.
@@ -279,15 +300,15 @@ function envoyerNotificationValidateur(demande, niveau, token) {
           <div class="section-title">Votre décision</div>
 
           <!-- Option 1 : Validation directe dans le tableau (recommandée) -->
-          <div style="background:#f0f9fc;border:2px solid ${theme.couleurAccent};border-radius:8px;padding:16px;margin-bottom:16px">
-            <div style="font-size:12px;font-weight:700;color:${theme.couleurAccent};text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">
+          <div style="background:${theme.couleurFondTableau || '#f0f9fc'};border:2px solid ${theme.couleurAccent};border-radius:10px;padding:20px;margin-bottom:16px">
+            <div style="font-size:13px;font-weight:800;color:${theme.couleurLabelOption1 || theme.couleurAccent};text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px">
               ✏️ Option 1 — Directement dans le tableau (recommandé)
             </div>
             <a href="https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_REPONSES_ID}/edit"
-               style="display:block;text-align:center;padding:13px;color:${theme.couleurTexte};background:${theme.couleurAccent};border-radius:6px;text-decoration:none;font-weight:700;font-size:14px;">
-              📊 Ouvrir le tableau de suivi
+               style="display:block;text-align:center;padding:14px 20px;color:${theme.couleurTexteBoutonTableau || theme.couleurTexte};background:${theme.couleurBoutonTableau || theme.couleurAccent};border-radius:8px;text-decoration:none;font-weight:800;font-size:15px;letter-spacing:.3px">
+              Ouvrir le tableau de suivi
             </a>
-            <p style="font-size:12px;color:#555555;margin-top:8px;line-height:1.5">
+            <p style="font-size:13px;color:${theme.couleurTexteTableau || '#555555'};margin-top:12px;line-height:1.6">
               Trouvez la ligne <strong>${demande.idDemande}</strong>, saisissez votre motif en colonne U si vous rejetez,
               puis choisissez <strong>Approuvé</strong> ou <strong>Rejeté</strong> dans la colonne qui vous correspond.
             </p>
@@ -300,13 +321,13 @@ function envoyerNotificationValidateur(demande, niveau, token) {
             </div>
             <div class="btn-block">
               <a href="${lienApprouver}"
-                 style="display:block;text-align:center;padding:12px;color:${theme.couleurTexte};background:${theme.couleurAccent};border-radius:6px;text-decoration:none;font-weight:700;font-size:14px;">
+                 style="display:block;text-align:center;padding:12px;color:${theme.couleurTexteBoutonApprouver || theme.couleurTexte};background:${theme.couleurBoutonApprouver || theme.couleurAccent};border-radius:6px;text-decoration:none;font-weight:700;font-size:14px;">
                 ✅ APPROUVER
               </a>
             </div>
             <div class="btn-block" style="margin-top:8px">
               <a href="${lienRejeter}"
-                 style="display:block;text-align:center;padding:12px;color:#ffffff;background:#dc3545;border-radius:6px;text-decoration:none;font-weight:700;font-size:14px;">
+                 style="display:block;text-align:center;padding:12px;color:#ffffff;background:${theme.couleurBoutonRejet || '#dc3545'};border-radius:6px;text-decoration:none;font-weight:700;font-size:14px;">
                 ❌ REJETER (avec motif)
               </a>
             </div>

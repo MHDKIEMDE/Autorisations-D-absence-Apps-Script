@@ -61,41 +61,83 @@ const CONFIG = {
   //       email          — email de la Présidence à notifier
   //       nom            — nom affiché dans les emails
   //     Champs visuels (personnalisation des emails) :
-  //       couleur        — fond de l'entête email
-  //       couleurBadge   — couleur du badge
-  //       couleurAccent  — boutons et bordures
-  //       couleurTexte   — texte sur l'entête (#ffffff ou #333333)
-  //       police         — font-family CSS
+  //       couleur           — fond de l'entête email
+  //       couleurBadge      — fond du badge
+  //       couleurTexteBadge — texte du badge (#333333 par défaut)
+  //       couleurAccent     — boutons Approuver, bordures, titres section
+  //       couleurTexte      — texte sur l'entête (#ffffff ou #333333)
+  //       couleurFondMotif  — fond de la card Motif (#f0f9fc par défaut)
+  //       couleurFondDuree  — fond de la card Durée (#fff8e6 par défaut)
+  //       couleurLabelDuree — label "Durée" dans la card (#856404 par défaut)
+  //       couleurBoutonRejet — bouton Rejeter (#dc3545 par défaut)
+  //       police            — font-family CSS
   //
-  //     Si un supérieur n'est pas listé ici → EMAIL_PRESIDENCE
-  //     et le thème Massaka SAS sont utilisés par défaut.
+  //     Deux types d'entrées possibles :
+  //       1. Clé = email du supérieur  → thème spécifique + présidence compétente
+  //       2. Clé = nom de l'org        → thème par défaut de l'organisation (fallback)
+  //
+  //     Si un supérieur n'est pas listé → fallback sur l'entrée dont nomOrg correspond,
+  //     sinon EMAIL_PRESIDENCE et thème Massaka SAS par défaut.
   // ----------------------------------------------------------
   PRESIDENCE_MAP: {
 
-    // ── Entreprise 1 ─────────────────────────────────────────────────────────
-    // 'sup1@votreorg.com': {
-    //   email:         'president@votreorg.com',
-    //   nom:           'REMPLACER — Président Entreprise 1',
-    //   nomOrg:        'Entreprise 1',              // ← nom affiché dans les emails
-    //   couleur:       '#016579',    // fond entête
-    //   couleurBadge:  '#f8c542',   // badge
-    //   couleurAccent: '#016579',   // boutons / bordures
-    //   couleurTexte:  '#ffffff',   // texte sur entête
-    //   police:        "'Segoe UI', Arial, sans-serif",
-    // },
+    // ── Thèmes par défaut par organisation (fallback) ─────────────────────────
+    'Massaka SAS': {
+      nomOrg:                    'Massaka SAS',
+      couleur:                   '#000000',
+      couleurBadge:              '#008080',
+      couleurTexteBadge:         '#ffffff',
+      couleurAccent:             '#005555',
+      couleurTexte:              '#ffffff',
+      couleurFondMotif:          '#f0f9fc',
+      couleurFondDuree:          '#fff8e6',
+      couleurLabelDuree:         '#856404',
+      couleurBoutonRejet:          '#dc3545',
+      couleurBoutonApprouver:      '#005555',
+      couleurTexteBoutonApprouver: '#ffffff',
+      couleurFondTableau:          '#f0f9fc',
+      couleurTexteTableau:         '#555555',
+      couleurLabelOption1:         '#005555',
+      couleurBoutonTableau:        '#005555',
+      couleurTexteBoutonTableau:   '#ffffff',
+      police:                      "'Montserrat', 'Segoe UI', Arial, sans-serif"
+    },
+    'Agribusiness TV': {
+      nomOrg:                    'Agribusiness TV',
+      couleur:                   '#015438',
+      couleurBadge:              '#7ED957',
+      couleurTexteBadge:         '#1a3a1a',
+      couleurAccent:             '#015438',
+      couleurTexte:              '#ffffff',
+      couleurFondMotif:          '#f0faf3',
+      couleurFondDuree:          '#f5ffe8',
+      couleurLabelDuree:         '#3a6604',
+      couleurBoutonRejet:          '#dc3545',
+      couleurBoutonApprouver:      '#7ED957',
+      couleurTexteBoutonApprouver: '#ffffff',
+      couleurFondTableau:          '#edf7f2',
+      couleurTexteTableau:       '#1a3a2a',
+      couleurLabelOption1:       '#ffffff',
+      couleurBoutonTableau:      '#7ED957',
+      couleurTexteBoutonTableau: '#ffffff',
+      police:                    "'Proxima Nova', 'Segoe UI', Arial, sans-serif"
+    },
 
-    // ── Agribusiness TV ──────────────────────────────────────────────────────
-    // Couleurs secondaires : #B9EB57 (vert) · #F4EA37 (jaune) · #FF774D (orange)
-    // Typographie : Proxima Nova
-    // 'sup2@votreorg.com': {
-    //   email:         'president@agribusinesstv.com',
-    //   nom:           'REMPLACER — Président Agribusiness TV',
-    //   nomOrg:        'Agribusiness TV',           // ← nom affiché dans les emails
-    //   couleur:       '#FF774D',    // fond entête (orange)
-    //   couleurBadge:  '#F4EA37',   // badge (jaune)
-    //   couleurAccent: '#B9EB57',   // boutons / bordures (vert)
-    //   couleurTexte:  '#ffffff',   // texte sur entête
-    //   police:        "'Proxima Nova', 'Segoe UI', Arial, sans-serif",
+    // ── Supérieurs spécifiques (override — clé = email du supérieur) ──────────
+    // 'sup@massaka.com': {
+    //   email:              'president@massaka.com',
+    //   nom:                'Président Massaka',
+    //   nomOrg:             'Massaka SAS',
+    //   couleur:            '#000000',
+    //   couleurBadge:       '#f8c542',
+    //   couleurTexteBadge:  '#333333',
+    //   couleurAccent:      '#016579',
+    //   couleurTexte:       '#ffffff',
+    //   couleurFondMotif:   '#f0f9fc',
+    //   couleurFondDuree:   '#fff8e6',
+    //   couleurLabelDuree:  '#856404',
+    //   couleurBoutonRejet: '#dc3545',
+    //   police:             "'Montserrat', 'Segoe UI', Arial, sans-serif",
     // },
 
   },
