@@ -50,8 +50,8 @@ const CONFIG = {
   NOM_RH:             'Responsable RH',
 
   // Présidence par défaut — utilisée si le superviseur n'est pas dans PRESIDENCE_MAP
-  EMAIL_PRESIDENCE: 'president@massaka.com',
-  NOM_PRESIDENCE:   'Président',
+  EMAIL_PRESIDENCE: 'president@massakasas.com',
+  NOM_PRESIDENCE:   'Président Massaka SAS',
 
   // ----------------------------------------------------------
   // 🏛️  Mapping supérieur hiérarchique → Présidence compétente
@@ -83,6 +83,8 @@ const CONFIG = {
 
     // ── Thèmes par défaut par organisation (fallback) ─────────────────────────
     'Massaka SAS': {
+      email:                     'president@massakasas.com',
+      nom:                       'Président Massaka SAS',
       nomOrg:                    'Massaka SAS',
       couleur:                   '#000000',
       couleurBadge:              '#008080',
@@ -103,6 +105,8 @@ const CONFIG = {
       police:                      "'Montserrat', 'Segoe UI', Arial, sans-serif"
     },
     'Agribusiness TV': {
+      email:                     'president@agribusinesstv.com',
+      nom:                       'Président Agribusiness TV',
       nomOrg:                    'Agribusiness TV',
       couleur:                   '#015438',
       couleurBadge:              '#7ED957',

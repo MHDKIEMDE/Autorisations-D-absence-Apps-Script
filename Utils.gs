@@ -141,9 +141,12 @@ function getNomSuperieur(email) {
  * @param {string} emailSup - Email du superviseur de l'employé
  * @returns {{ email: string, nom: string }}
  */
-function getPresidencePourSup(emailSup) {
+function getPresidencePourSup(emailSup, nomOrg) {
   const map = CONFIG.PRESIDENCE_MAP || {};
-  if (emailSup && map[emailSup]) return map[emailSup];
+  // 1. Override spécifique par email du superviseur
+  if (emailSup && map[emailSup] && map[emailSup].email) return map[emailSup];
+  // 2. Fallback par organisation (pour les services sans supérieur)
+  if (nomOrg && map[nomOrg] && map[nomOrg].email) return map[nomOrg];
   return { email: CONFIG.EMAIL_PRESIDENCE, nom: CONFIG.NOM_PRESIDENCE };
 }
 

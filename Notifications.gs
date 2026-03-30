@@ -265,7 +265,7 @@ function envoyerNotificationValidateur(demande, niveau, token) {
 
   } else if (niveau === 'Presidence') {
     labelNiveau = 'Présidence';
-    const pres = getPresidencePourSup(demande.emailSuperieur);
+    const pres = getPresidencePourSup(demande.emailSuperieur, demande.nomOrg);
     destinations.push({ to: pres.email, nom: pres.nom });
   }
 
