@@ -218,7 +218,7 @@ function envoyerAccuseReceptionEmploye(demande) {
         <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:16px 0;border-collapse:collapse">
           <tr>
             <td style="background:${theme.couleurFondTableau || '#f0f9fc'};border-left:4px solid ${theme.couleurAccent};border-radius:6px;padding:12px 16px">
-              <span style="font-size:13px;font-weight:700;color:${theme.couleurAccent};text-transform:uppercase;letter-spacing:.5px">ℹ️ Information</span><br>
+              <span style="font-size:13px;font-weight:700;color:${theme.couleurLabelOption1 || theme.couleurAccent};text-transform:uppercase;letter-spacing:.5px">ℹ️ Information</span><br>
               <span style="font-size:14px;color:${theme.couleurTexteTableau || '#555555'};line-height:1.6">
                 Vous serez informé(e) uniquement en cas de rejet ou d'approbation finale.
               </span>
