@@ -119,7 +119,7 @@ const CONFIG = {
       couleurBoutonRejet:          '#dc3545',
       couleurBoutonApprouver:      '#7ED957',
       couleurTexteBoutonApprouver: '#ffffff',
-      couleurFondTableau:          '#015438',
+      couleurFondTableau:          '#161918',
       couleurTexteTableau:       '#ffffff',
       couleurLabelOption1:       '#ffffff',
       couleurBoutonTableau:      '#7ED957',
