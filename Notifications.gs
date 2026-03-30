@@ -300,15 +300,15 @@ function envoyerNotificationValidateur(demande, niveau, token) {
           <div class="section-title">Votre décision</div>
 
           <!-- Option 1 : Validation directe dans le tableau (recommandée) -->
-          <div style="background:#f0f9fc;border:2px solid ${theme.couleurAccent};border-radius:10px;padding:20px;margin-bottom:16px">
-            <div style="font-size:13px;font-weight:800;color:#005555;text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px">
+          <div style="background:${theme.couleurFondTableau || '#f0f9fc'};border:2px solid ${theme.couleurAccent};border-radius:10px;padding:20px;margin-bottom:16px">
+            <div style="font-size:13px;font-weight:800;color:${theme.couleurLabelOption1 || theme.couleurAccent};text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px">
               ✏️ Option 1 — Directement dans le tableau (recommandé)
             </div>
             <a href="https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_REPONSES_ID}/edit"
-               style="display:block;text-align:center;padding:14px 20px;color:#ffffff;background:#005555;border-radius:8px;text-decoration:none;font-weight:800;font-size:15px;letter-spacing:.3px">
+               style="display:block;text-align:center;padding:14px 20px;color:${theme.couleurTexteBoutonTableau || theme.couleurTexte || '#ffffff'};background:${theme.couleurBoutonTableau || theme.couleurAccent};border-radius:8px;text-decoration:none;font-weight:800;font-size:15px;letter-spacing:.3px">
               Ouvrir le tableau de suivi
             </a>
-            <p style="font-size:13px;color:#555555;margin-top:12px;line-height:1.6">
+            <p style="font-size:13px;color:${theme.couleurTexteTableau || '#555555'};margin-top:12px;line-height:1.6">
               Trouvez la ligne <strong>${demande.idDemande}</strong>, saisissez votre motif en colonne U si vous rejetez,
               puis choisissez <strong>Approuvé</strong> ou <strong>Rejeté</strong> dans la colonne qui vous correspond.
             </p>
