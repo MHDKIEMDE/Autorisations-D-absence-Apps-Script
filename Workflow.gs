@@ -146,6 +146,7 @@ function traiterDecision(token, decision, motif) {
         `https://docs.google.com/document/d/${docID}/edit`);
       mettreAJourDoc(lireDemande(sheet, row));
       envoyerConfirmationFinaleEmploye(lireDemande(sheet, row), 'Approuvé', '');
+      envoyerNotificationFinaleRH(lireDemande(sheet, row), 'Approuvé', '');
       log('OK', 'Workflow', `Demande ${demande.idDemande} clôturée : Approuvé`);
       return { success: true, message: "Demande approuvée. L'employé a été notifié." };
     }
@@ -167,6 +168,10 @@ function traiterDecision(token, decision, motif) {
 
     // ✅ Notifier l'employé — rejet à tout niveau
     envoyerConfirmationFinaleEmploye(lireDemande(sheet, row), 'Rejeté', motif.trim());
+    // Notifier la RH sauf si c'est elle qui a rejeté (circuit PRES_RH, niveau RH)
+    if (niveau !== 'RH') {
+      envoyerNotificationFinaleRH(lireDemande(sheet, row), 'Rejeté', motif.trim());
+    }
 
     log('OK', 'Workflow',
       `Décision Rejeté enregistrée - ${niveau} - demande ${demande.idDemande}`);
@@ -389,6 +394,7 @@ function traiterDecisionManuelle(e) {
             `https://docs.google.com/document/d/${docID}/edit`);
           mettreAJourDoc(lireDemande(sheet, row));
           envoyerConfirmationFinaleEmploye(lireDemande(sheet, row), 'Approuvé', '');
+          envoyerNotificationFinaleRH(lireDemande(sheet, row), 'Approuvé', '');
           log('OK', 'traiterDecisionManuelle', `Demande ${demande.idDemande} clôturée : Approuvé`);
           SpreadsheetApp.getActiveSpreadsheet().toast(
             'Demande approuvée et clôturée. L\'employé a été notifié.',
@@ -419,6 +425,10 @@ function traiterDecisionManuelle(e) {
       invaliderTokensRestants(sheet, row, niveau, workflow);
       cloturerDemande(sheet, row, 'Rejeté', motif);
       envoyerConfirmationFinaleEmploye(lireDemande(sheet, row), 'Rejeté', motif);
+      // Notifier la RH sauf si c'est elle qui a rejeté (circuit PRES_RH, niveau RH)
+      if (niveau !== 'RH') {
+        envoyerNotificationFinaleRH(lireDemande(sheet, row), 'Rejeté', motif);
+      }
 
       log('OK', 'traiterDecisionManuelle',
         `Demande ${demande.idDemande} clôturée : Rejeté (niveau ${niveau})`);

@@ -433,3 +433,100 @@ function envoyerConfirmationFinaleEmploye(demande, decision, motif) {
 
   log('OK', 'Notifications', `Confirmation finale → ${demande.emailEmploye} | decision=${decision} | org=${nomOrg} | ref=${demande.idDemande}`);
 }
+
+
+// ============================================================
+// 4. Notification finale à la RH — toute décision de clôture
+//    Appelée après envoyerConfirmationFinaleEmploye.
+//    NON appelée quand la RH est elle-même le validateur final
+//    (circuit PRES_RH, niveau RH) pour éviter un email redondant.
+//
+//    Rejet  → résumé de la demande + motif de refus
+//    Approuvé → résumé + lien PDF du document officiel
+// ============================================================
+function envoyerNotificationFinaleRH(demande, decision, motif) {
+  const emailRH = CONFIG.EMAIL_RH;
+  const nomRH   = CONFIG.NOM_RH;
+  if (!emailRH) {
+    log('WARN', 'Notifications', `envoyerNotificationFinaleRH : EMAIL_RH non défini dans Config.gs`);
+    return;
+  }
+
+  const nomOrg      = demande.nomOrg || CONFIG.NOM_ORG;
+  const theme       = getThemeEmail(nomOrg, demande.emailSuperieur);
+  const estApprouve = decision === 'Approuvé' || decision === 'Approuve';
+
+  const sujet = estApprouve
+    ? `[${nomOrg}] Demande approuvée – ${demande.idDemande} – ${demande.prenom} ${demande.nom}`
+    : `[${nomOrg}] Demande rejetée – ${demande.idDemande} – ${demande.prenom} ${demande.nom}`;
+
+  const iconResultat  = estApprouve ? '✅' : '❌';
+  const classeResultat = estApprouve ? 'result-ok' : 'result-ko';
+  const texteResultat  = estApprouve ? 'Approuvée' : 'Rejetée';
+
+  const cr = theme.couleurBoutonRejet || '#dc3545';
+  const ca = theme.couleurAccent      || '#016579';
+  const ct = theme.couleurTexte       || '#ffffff';
+
+  const blocMotif = (!estApprouve && motif) ? `
+    <div class="motif-box">
+      <strong>Motif du refus :</strong><br>${motif}
+    </div>
+  ` : '';
+
+  const blocDoc = (estApprouve && demande.driveDocID) ? `
+    <div class="section-title">Document officiel</div>
+    <p style="font-size:14px;color:#555555;line-height:1.6;margin-top:8px">
+      Le document d'autorisation d'absence est joint en pièce jointe (PDF).
+    </p>
+  ` : '';
+
+  const htmlBody = `
+    <!DOCTYPE html><html><head><meta charset="UTF-8">${cssEmail(theme)}</head>
+    <body><div class="wrap">
+      <div class="header">
+        <div class="logo">⬡ ${nomOrg}</div>
+        <div class="sous-titre">Système de gestion des absences</div>
+        <div class="badge">${estApprouve ? 'Décision finale — Approuvé' : 'Décision finale — Rejeté'}</div>
+      </div>
+      <div class="body">
+        <p style="font-size:15px;margin-bottom:4px">
+          Bonjour <strong>${nomRH}</strong>,
+        </p>
+        <p style="font-size:14px;color:#555555;margin-top:8px;line-height:1.6">
+          La demande de <strong>${demande.prenom} ${demande.nom}</strong> a été traitée.
+          Voici le récapitulatif pour votre information.
+        </p>
+        <div style="padding:12px 0 4px">
+          <div style="font-size:22px;font-weight:800;margin-bottom:4px">
+            ${iconResultat} <span class="${classeResultat}">${texteResultat}</span>
+          </div>
+        </div>
+        ${blocMotif}
+        ${blocRecapitulatif(demande, theme)}
+        ${blocDoc}
+        <p class="note">
+          Référence : <strong>${demande.idDemande}</strong><br>
+          Ce message est un récapitulatif automatique à titre informatif.
+        </p>
+      </div>
+      <div class="footer">${nomOrg} — Système automatisé de gestion des absences</div>
+    </div></body></html>
+  `;
+
+  const options = { htmlBody: htmlBody, name: nomOrg + ' Système' };
+
+  if (estApprouve && demande.driveDocID) {
+    try {
+      const pdf = DriveApp.getFileById(demande.driveDocID)
+        .getAs('application/pdf');
+      pdf.setName(`${demande.idDemande} - ${demande.nomComplet}.pdf`);
+      options.attachments = [pdf];
+    } catch (e) {
+      log('WARN', 'Notifications', `RH — impossible de joindre le PDF pour ${demande.idDemande} : ${e}`);
+    }
+  }
+
+  GmailApp.sendEmail(emailRH, sujet, '', options);
+  log('OK', 'Notifications', `Notification finale RH → ${emailRH} | decision=${decision} | org=${nomOrg} | ref=${demande.idDemande}`);
+}

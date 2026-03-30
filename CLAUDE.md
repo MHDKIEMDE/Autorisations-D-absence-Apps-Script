@@ -110,3 +110,68 @@ All column indices are centralized in `Config.gs` as `CONFIG.COL.*` constants (1
 - Employee always receives: submission receipt + final decision
 - Intermediate approvals (Sup→RH, RH→Presidency) are **not** sent to the employee
 - Any rejection at any level triggers immediate final notification
+
+### Token Lifecycle
+
+Tokens are UUID strings stored in columns W–Y. Their prefix encodes their state:
+
+| Value | Meaning |
+|---|---|
+| `<uuid>` | Active — link is usable |
+| `UTILISE_<uuid>` | Already used — decision recorded |
+| `INVALIDE_<uuid>` | Cancelled (skipped level or downstream of a rejection) |
+
+`trouverLigneParToken()` strips both prefixes before matching, so it always finds the row regardless of state. The `utilise` boolean in the returned object tells callers whether the token was already consumed.
+
+### Dual-Trigger Architecture for Manual Validation
+
+Two triggers coexist on the sheet edit event:
+
+- **`onEdit` (simple trigger, Code.gs)** — Fires synchronously, cannot use LockService. Its sole job is to revert the cell value if `STATUT_GLOBAL` is already closed (last-resort guard). No workflow logic here.
+- **`traiterDecisionManuelle` (installable trigger, Workflow.gs)** — The real handler. Uses `LockService.getScriptLock()` with a 5-second timeout to prevent race conditions, enforces validation order, sends email notifications, and closes the request.
+
+Both run on every edit; the simple trigger is a safety net for closed requests while the installable trigger handles the active cascade.
+
+### Admin Menu (Setup.gs — `onOpen`)
+
+| Menu item | Function | Purpose |
+|---|---|---|
+| Filtrer par mois / année | `filtrerParMoisAnnee` | Hide rows outside a given period |
+| Tout afficher | `toutAfficher` | Unhide all rows |
+| Activer validation manuelle | `installerTriggerValidationManuelle` | Install the installable `onEdit` trigger if absent |
+| Renvoyer une validation | `renvoyerValidationManuelle` | Manually re-send a validator notification |
+| Reprendre un traitement échoué | `reprendreTraitement` | Retry Drive/Doc creation after a propagation failure |
+| Nettoyer les triggers en double | `nettoyerTriggers` | Remove duplicate triggers |
+| Reconfigurer les couleurs | `colorerStatuts` | Reapply conditional formatting on status columns |
+| Reconfigurer les protections | `configurerProtections` | Rebuild column protections and dropdowns |
+| Initialiser le projet | `initialiserProjet` | One-time setup: headers, 3 triggers, protections |
+
+### Shared Data Object — `lireDemande(sheet, row)`
+
+All functions pass a single `demande` object returned by `lireDemande()`. Key fields:
+
+```js
+{ idDemande, emailEmploye, matricule, nom, prenom, nomComplet,
+  service, typePerm, typeAbsence, motifLong, nbJours,
+  dateDebut, heureDebut, dateFin, heureFin,   // formatted strings
+  dateDebutRaw, heureDebutRaw, dateFinRaw, heureFinRaw,  // raw Date objects
+  dateDebutOrd, dateFinOrd,   // "Permission ordinaire" dates
+  emailSuperieur, avisSuperieur, avisRH, avisPres,
+  tokenSup, tokenRH, tokenPres,
+  commentaire, statutGlobal, dateCloture,
+  driveDossierID, driveDocID,
+  nomOrg }   // resolved once from SERVICE_SUP_MAP
+```
+
+### Email Theme Resolution (`getThemeEmail` in Notifications.gs)
+
+Priority order for per-org / per-supervisor visual theming:
+1. `PRESIDENCE_MAP[emailSup]` — supervisor-specific override (key = supervisor email)
+2. `PRESIDENCE_MAP` entry whose `nomOrg` matches `demande.nomOrg` — org-level fallback
+3. Hard-coded defaults (teal palette)
+
+To add a new organization's theme, add an entry keyed by `nomOrg` string to `PRESIDENCE_MAP` in Config.gs.
+
+### Unknown Service Fallback
+
+If a service value from the form is not found in `SERVICE_SUP_MAP`, `onFormSubmit` logs a warning and defaults to workflow `RH_PRES` with no supervisor. The request still processes; add the service to `SERVICE_SUP_MAP` to fix routing.

@@ -90,6 +90,11 @@ function onFormSubmit(e) {
           'Rejeté',
           `Demande hors délai (${delaiMin} jours ouvrables requis). Contactez les RH en cas d'urgence.`
         );
+        envoyerNotificationFinaleRH(
+          lireDemande(sheet, row),
+          'Rejeté',
+          `Rejet automatique — délai insuffisant (${nbJoursOuvr} jour(s) ouvrable(s), minimum requis : ${delaiMin}).`
+        );
 
         log('OK', 'onFormSubmit',
           `Demande ${idDemande} clôturée : Rejeté automatiquement - ligne ${row}`);
