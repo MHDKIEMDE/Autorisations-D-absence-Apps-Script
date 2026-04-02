@@ -15,6 +15,12 @@ Avant de commencer, assurez-vous de disposer de :
 
 ---
 
+Quand je valide de facons manuelle c'est ok 
+
+le probleme surviens quand je valide par les bouton action directement sur le mail option 2 de validation
+You've hit your limit · resets 7pm (Africa/Ouagadougou)
+
+
 ## 2. Étapes d'installation
 
 ### Étape 1 — Créer le projet Apps Script
@@ -28,7 +34,7 @@ Avant de commencer, assurez-vous de disposer de :
    - `Setup.gs`
    - `Code.gs`
    - `Workflow.gs`
-   - `DriveManager.gs`
+   - `DriveManager.gs`.
    - `Notifications.gs`
    - `WebApp.gs`
 5. Copier le contenu de chaque fichier fourni dans le fichier correspondant

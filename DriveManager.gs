@@ -4,29 +4,40 @@
 // Structure des dossiers Drive :
 //   Racine/
 //     Accepté/
-//       [MSK-2026-0001 - Nom Prenom]/  ← dossier de la demande
-//         [MSK-2026-0001 - Nom Prenom] ← Google Doc
+//       [Nom Prenom]/               ← dossier de la personne (réutilisé)
+//         [MSK-2026-0001 - Nom Prenom] ← Google Doc de la demande
+//         [MSK-2026-0005 - Nom Prenom] ← Google Doc d'une autre demande
 // ============================================================
 
-// Utilitaire : retourne le sous-dossier par nom, le crée si absent
+// Utilitaire : retourne le sous-dossier par nom exact, le crée si absent
 function getOuCreerSousDossier(parent, nom) {
   const it = parent.getFoldersByName(nom);
   return it.hasNext() ? it.next() : parent.createFolder(nom);
+}
+
+// Utilitaire : retourne le sous-dossier par nom insensible à la casse, le crée si absent
+function getOuCreerSousDossierInsensible(parent, nom) {
+  const nomLower = nom.toLowerCase();
+  const it = parent.getFolders();
+  while (it.hasNext()) {
+    const f = it.next();
+    if (f.getName().toLowerCase() === nomLower) return f;
+  }
+  return parent.createFolder(nom);
 }
 
 
 function creerDossierEtDoc(demande) {
   log('INFO', 'DriveManager', `Creation dossier/doc pour ${demande.idDemande}`);
 
-  const dossierRacine = DriveApp.getFolderById(CONFIG.DRIVE_DOSSIER_RACINE);
+  const dossierRacine   = DriveApp.getFolderById(CONFIG.DRIVE_DOSSIER_RACINE);
+  const dossierAccepte  = getOuCreerSousDossier(dossierRacine, 'Accepté');
 
-  // Dossier de la demande directement dans "Accepté"
-  const dossierAccepte = getOuCreerSousDossier(dossierRacine, 'Accepté');
-  const nomDossier     = `${demande.idDemande} - ${demande.nomComplet}`;
-  const dossierDemande = dossierAccepte.createFolder(nomDossier);
-  log('INFO', 'DriveManager', `Dossier cree : ${dossierDemande.getId()} - ${nomDossier}`);
+  // Chercher ou créer le dossier de la personne (insensible à la casse)
+  const dossierPersonne = getOuCreerSousDossierInsensible(dossierAccepte, demande.nomComplet);
+  log('INFO', 'DriveManager', `Dossier personne : ${dossierPersonne.getId()} - ${demande.nomComplet}`);
 
-  // Copier le template
+  // Copier le template directement dans le dossier de la personne
   const dossierTemplate = DriveApp.getFolderById(CONFIG.DRIVE_DOSSIER_TEMPLATE);
   const templateIt      = dossierTemplate.getFiles();
 
@@ -46,17 +57,15 @@ function creerDossierEtDoc(demande) {
       `Supprimez les autres fichiers du dossier template pour éviter toute confusion.`);
   }
 
-  const docCopie = templateFichier.makeCopy(
-    `${demande.idDemande} - ${demande.nomComplet}`,
-    dossierDemande
-  );
+  const nomDoc   = `${demande.idDemande} - ${demande.nomComplet}`;
+  const docCopie = templateFichier.makeCopy(nomDoc, dossierPersonne);
   log('INFO', 'DriveManager', `Doc cree : ${docCopie.getId()} | type: ${docCopie.getMimeType()} | pour ${demande.idDemande}`);
 
   // Remplir le template
   remplirTemplate(docCopie.getId(), demande);
 
   return {
-    dossierID: dossierDemande.getId(),
+    dossierID: dossierPersonne.getId(),
     docID:     docCopie.getId()
   };
 }

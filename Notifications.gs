@@ -236,7 +236,7 @@ function envoyerAccuseReceptionEmploye(demande) {
 
   GmailApp.sendEmail(
     demande.emailEmploye,
-    `[${nomOrg}] Demande reçue – ${demande.idDemande}`,
+    `${nomOrg} – Demande reçue – ${demande.idDemande}`,
     '',
     { htmlBody: htmlBody, name: nomOrg + ' RH' }
   );
@@ -271,6 +271,7 @@ function envoyerNotificationValidateur(demande, niveau, token) {
 
   const nomOrg = demande.nomOrg || CONFIG.NOM_ORG;
   const theme  = getThemeEmail(nomOrg, demande.emailSuperieur);
+  log('DEBUG', 'Notifications', `envoyerNotificationValidateur niveau=${niveau} | nomOrg="${nomOrg}" | emailSup="${demande.emailSuperieur}" | theme.couleur="${theme.couleur}" | theme.couleurBadge="${theme.couleurBadge}"`);
   const lienApprouver = `${CONFIG.WEBAPP_URL}?token=${token}&action=APPROUVE`;
   const lienRejeter   = `${CONFIG.WEBAPP_URL}?token=${token}`;
 
@@ -304,10 +305,16 @@ function envoyerNotificationValidateur(demande, niveau, token) {
             <div style="font-size:13px;font-weight:800;color:${theme.couleurLabelOption1 || theme.couleurAccent};text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px">
               ✏️ Option 1 — Directement dans le tableau (recommandé)
             </div>
-            <a href="https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_REPONSES_ID}/edit"
-               style="display:block;text-align:center;padding:14px 20px;color:${theme.couleurTexteBoutonTableau || theme.couleurTexte || '#ffffff'};background:${theme.couleurBoutonTableau || theme.couleurAccent};border-radius:8px;text-decoration:none;font-weight:800;font-size:15px;letter-spacing:.3px">
-              Ouvrir le tableau de suivi
-            </a>
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-radius:8px;overflow:hidden">
+              <tr>
+                <td bgcolor="${theme.couleurBoutonTableau || theme.couleurAccent}" style="background:${theme.couleurBoutonTableau || theme.couleurAccent};border-radius:8px">
+                  <a href="https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_REPONSES_ID}/edit"
+                     style="display:block;text-align:center;padding:14px 20px;color:${theme.couleurTexteBoutonTableau || theme.couleurTexte || '#ffffff'};text-decoration:none;font-weight:800;font-size:15px;letter-spacing:.3px">
+                    Ouvrir le tableau de suivi
+                  </a>
+                </td>
+              </tr>
+            </table>
             <p style="font-size:13px;color:${theme.couleurTexteTableau || '#555555'};margin-top:12px;line-height:1.6">
               Trouvez la ligne <strong>${demande.idDemande}</strong>, saisissez votre motif en colonne U si vous rejetez,
               puis choisissez <strong>Approuvé</strong> ou <strong>Rejeté</strong> dans la colonne qui vous correspond.
@@ -317,20 +324,28 @@ function envoyerNotificationValidateur(demande, niveau, token) {
           <!-- Option 2 : Liens rapides par email -->
           <div style="background:#f9f9f9;border:1px solid #e0e0e0;border-radius:8px;padding:16px">
             <div style="font-size:12px;font-weight:700;color:#666666;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">
-              🔗 Option 2 — Liens rapides (usage unique)
+              Option 2 — Liens rapides (usage unique)
             </div>
-            <div class="btn-block">
-              <a href="${lienApprouver}"
-                 style="display:block;text-align:center;padding:12px;color:${theme.couleurTexteBoutonApprouver || theme.couleurTexte};background:${theme.couleurBoutonApprouver || theme.couleurAccent};border-radius:6px;text-decoration:none;font-weight:700;font-size:14px;">
-                ✅ APPROUVER
-              </a>
-            </div>
-            <div class="btn-block" style="margin-top:8px">
-              <a href="${lienRejeter}"
-                 style="display:block;text-align:center;padding:12px;color:#ffffff;background:${theme.couleurBoutonRejet || '#dc3545'};border-radius:6px;text-decoration:none;font-weight:700;font-size:14px;">
-                ❌ REJETER (avec motif)
-              </a>
-            </div>
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:8px">
+              <tr>
+                <td bgcolor="${theme.couleurBoutonApprouver || theme.couleurAccent}" style="background:${theme.couleurBoutonApprouver || theme.couleurAccent};border-radius:6px">
+                  <a href="${lienApprouver}"
+                     style="display:block;text-align:center;padding:12px;color:${theme.couleurTexteBoutonApprouver || theme.couleurTexte};text-decoration:none;font-weight:700;font-size:14px">
+                    ✅ APPROUVER
+                  </a>
+                </td>
+              </tr>
+            </table>
+            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td bgcolor="${theme.couleurBoutonRejet || '#dc3545'}" style="background:${theme.couleurBoutonRejet || '#dc3545'};border-radius:6px">
+                  <a href="${lienRejeter}"
+                     style="display:block;text-align:center;padding:12px;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px">
+                    ❌ REJETER (avec motif)
+                  </a>
+                </td>
+              </tr>
+            </table>
             <p style="font-size:12px;color:#999999;margin-top:10px;line-height:1.5">
               Ces liens sont à usage unique. Pour rejeter, un motif sera demandé.
             </p>
@@ -346,7 +361,7 @@ function envoyerNotificationValidateur(demande, niveau, token) {
 
     GmailApp.sendEmail(
       to,
-      `[${nomOrg}] A valider – ${demande.idDemande} – ${demande.prenom} ${demande.nom}`,
+      `${nomOrg} – A valider – ${demande.idDemande} – ${demande.prenom} ${demande.nom}`,
       '',
       { htmlBody: htmlBody, name: nomOrg + ' RH' }
     );
@@ -366,8 +381,8 @@ function envoyerConfirmationFinaleEmploye(demande, decision, motif) {
   const estApprouve = decision === 'Approuve' || decision === 'Approuvé';
 
   const sujet = estApprouve
-    ? `[${nomOrg}] Absence approuvee – ${demande.idDemande}`
-    : `[${nomOrg}] Absence refusee – ${demande.idDemande}`;
+    ? `${nomOrg} – Absence approuvee – ${demande.idDemande}`
+    : `${nomOrg} – Absence refusee – ${demande.idDemande}`;
 
   const iconResultat  = estApprouve ? '✅' : '❌';
   const texteResultat = estApprouve ? 'Votre demande a été approuvée' : 'Votre demande a été refusée';
@@ -460,8 +475,8 @@ function envoyerNotificationFinaleRH(demande, decision, motif) {
   const estApprouve = decision === 'Approuvé' || decision === 'Approuve';
 
   const sujet = estApprouve
-    ? `[${nomOrg}] Demande approuvée – ${demande.idDemande} – ${demande.prenom} ${demande.nom}`
-    : `[${nomOrg}] Demande rejetée – ${demande.idDemande} – ${demande.prenom} ${demande.nom}`;
+    ? `${nomOrg} – Demande approuvée – ${demande.idDemande} – ${demande.prenom} ${demande.nom}`
+    : `${nomOrg} – Demande rejetée – ${demande.idDemande} – ${demande.prenom} ${demande.nom}`;
 
   const iconResultat  = estApprouve ? '✅' : '❌';
   const classeResultat = estApprouve ? 'result-ok' : 'result-ko';
