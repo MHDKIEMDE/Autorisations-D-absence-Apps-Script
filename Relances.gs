@@ -46,6 +46,14 @@ function verifierEtRelancer() {
     // Ignorer si le token est deja consomme
     if (token.startsWith('UTILISE_') || token.startsWith('INVALIDE_')) return;
 
+    // Ignorer si la date de debut est deja passee — relance inutile
+    const dateDebutRaw = r[CONFIG.COL.DATE_DEBUT - 1] || r[CONFIG.COL.DATE_DEBUT_ORD - 1];
+    const dateDebut    = dateDebutRaw ? new Date(dateDebutRaw) : null;
+    if (dateDebut && !isNaN(dateDebut) && today >= dateDebut) {
+      log('INFO', 'Relances', `Relance ignoree — date de debut passee (ligne ${row})`);
+      return;
+    }
+
     // Verifier le delai depuis derniere relance (ou depuis la soumission)
     const dernRelanceRaw = r[CONFIG.COL.RELANCE      - 1];
     const horodateurRaw  = r[CONFIG.COL.HORODATEUR   - 1];
