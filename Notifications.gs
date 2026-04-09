@@ -249,7 +249,7 @@ function envoyerAccuseReceptionEmploye(demande) {
 // 2. Notification au validateur (superieur / RH / Presidence)
 //    Config emails directement dans Config.gs — plus besoin du sheet.
 // ============================================================
-function envoyerNotificationValidateur(demande, niveau, token) {
+function envoyerNotificationValidateur(demande, niveau, token, estRelance) {
 
   const destinations = [];
   let labelNiveau = '';
@@ -275,6 +275,12 @@ function envoyerNotificationValidateur(demande, niveau, token) {
   const lienApprouver = `${CONFIG.WEBAPP_URL}?token=${token}&action=APPROUVE`;
   const lienRejeter   = `${CONFIG.WEBAPP_URL}?token=${token}`;
 
+  const blocRelance = estRelance ? `
+    <div style="background:#fff3cd;border-left:4px solid #ffc107;border-radius:6px;padding:10px 14px;margin-bottom:16px">
+      <span style="font-size:13px;font-weight:700;color:#856404">⏰ Rappel — cette demande attend toujours votre validation.</span>
+    </div>
+  ` : '';
+
   destinations.forEach(({ to, nom }) => {
     if (!to) {
       log('WARN', 'Notifications', `Email manquant pour niveau ${niveau} — verifie Config.gs`);
@@ -293,6 +299,7 @@ function envoyerNotificationValidateur(demande, niveau, token) {
           <p style="font-size:15px;margin-bottom:4px">
             Bonjour <strong>${nom}</strong>,
           </p>
+          ${blocRelance}
           <p style="font-size:14px;color:#555555;margin-top:8px;line-height:1.6">
             Une demande d'autorisation d'absence nécessite votre validation
             en tant que <strong>${labelNiveau}</strong>.
@@ -361,7 +368,7 @@ function envoyerNotificationValidateur(demande, niveau, token) {
 
     GmailApp.sendEmail(
       to,
-      `${nomOrg} – A valider – ${demande.idDemande} – ${demande.prenom} ${demande.nom}`,
+      `${estRelance ? 'Relance – ' : ''}${nomOrg} – A valider – ${demande.idDemande} – ${demande.prenom} ${demande.nom}`,
       '',
       { htmlBody: htmlBody, name: nomOrg + ' RH' }
     );
