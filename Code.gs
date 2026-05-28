@@ -24,7 +24,8 @@ function onFormSubmit(e) {
     // ----------------------------------------------------------
     const service       = sheet.getRange(row, CONFIG.COL.SERVICE).getValue().toString().trim();
     const serviceConfig = (CONFIG.SERVICE_SUP_MAP || {})[service] || {};
-    const emailSup      = serviceConfig.sup  || '';
+    // sup est une clé interne (ex: 'SUP_CPD') — résolution de l'email via PERSONNEL
+    const emailSup      = getEmailSuperieur(serviceConfig.sup);
     const workflow      = serviceConfig.workflow || 'PRES';
 
     if (!serviceConfig.workflow) {

@@ -122,24 +122,35 @@ function trouverLigneParTokenOptimise(token) {
   return null;
 }
 
+/**
+ * Retourne le nom affiché d'un supérieur à partir de son email.
+ * Cherche dans PERSONNEL.superieurs (valeurs, pas clés).
+ */
 function getNomSuperieur(email) {
-  return CONFIG.SUP_NOMS[email] || email;
+  const sups = (CONFIG.PERSONNEL || {}).superieurs || {};
+  const found = Object.values(sups).find(s => s.email === email);
+  return found ? found.nom : (email || '');
 }
 
 /**
- * Retourne la Présidence compétente pour un superviseur donné.
- * Retourne un objet { emails: [], noms: [] }.
+ * Résout l'email d'un supérieur à partir de la clé SERVICE_SUP_MAP.sup.
+ * La clé sup est un identifiant interne (ex: 'SUP_CPD'), pas un email.
+ */
+function getEmailSuperieur(supKey) {
+  if (!supKey) return '';
+  const sups = (CONFIG.PERSONNEL || {}).superieurs || {};
+  return (sups[supKey] || {}).email || '';
+}
+
+/**
+ * Retourne les validateurs présidence : { emails: [], noms: [] }.
+ * Toujours depuis CONFIG.PERSONNEL.presidence.
  */
 function getPresidencePourSup(emailSup, nomOrg) {
-  const map = CONFIG.PRESIDENCE_MAP || {};
-  // 1. Override par email du superviseur
-  if (emailSup && map[emailSup] && map[emailSup].emails) return map[emailSup];
-  // 2. Fallback par organisation
-  if (nomOrg && map[nomOrg] && map[nomOrg].emails) return map[nomOrg];
-  // 3. Défaut global
+  const pres = (CONFIG.PERSONNEL || {}).presidence || [];
   return {
-    emails: CONFIG.EMAILS_PRESIDENCE || [],
-    noms:   CONFIG.NOMS_PRESIDENCE   || []
+    emails: pres.map(p => p.email).filter(Boolean),
+    noms:   pres.map(p => p.nom).filter(Boolean)
   };
 }
 

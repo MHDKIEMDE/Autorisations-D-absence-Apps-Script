@@ -102,7 +102,6 @@ function colorerStatuts() {
 
   const colonnes = [
     CONFIG.COL.AVIS_SUP,
-    CONFIG.COL.AVIS_RH,
     CONFIG.COL.AVIS_PRES,
     CONFIG.COL.STATUT_GLOBAL
   ];
@@ -256,13 +255,12 @@ function initialiserProjet() {
   SpreadsheetApp.getUi().alert(
     'Initialisation réussie !\n\n' +
     'Prochaines étapes (tout dans Config.gs) :\n\n' +
-    '1. Renseigner les vrais emails :\n' +
-    '   EMAILS_PRESIDENCE: ["email1@...", "email2@..."]\n\n' +
-    '2. Ajouter les supérieurs dans SUP_NOMS :\n' +
-    '   "email@massaka.com": "Prénom Nom"\n\n' +
-    '3. Renseigner DRIVE_DOSSIER_RACINE et DRIVE_DOSSIER_TEMPLATE\n\n' +
-    '4. Déployer la Web App puis copier l\'URL dans WEBAPP_URL\n\n' +
-    '5. Tester avec une soumission formulaire.'
+    '1. Renseigner les vrais emails dans PERSONNEL :\n' +
+    '   presidence[0].email, presidence[1].email\n' +
+    '   superieurs.SUP_CPD.email, etc.\n\n' +
+    '2. Renseigner DRIVE_DOSSIER_RACINE et DRIVE_DOSSIER_TEMPLATE\n\n' +
+    '3. Déployer la Web App puis copier l\'URL dans WEBAPP_URL\n\n' +
+    '4. Tester avec une soumission formulaire.'
   );
 }
 
@@ -309,12 +307,11 @@ function installerTriggerValidationManuelle() {
 // Protection des colonnes + validation de données
 //
 // Carte des accès :
-//   A–Q  (données formulaire)  → avertissement seul (lecture conseillée)
-//   R    AVIS_SUP              → supérieurs uniquement  (verrouillage strict)
-//   S    AVIS_RH               → RH uniquement           (verrouillage strict)
-//   T    AVIS_PRES             → Présidence uniquement   (verrouillage strict)
-//   U    COMMENTAIRE           → libre (aucune protection)
-//   V–AD (colonnes système)    → avertissement seul (réservé au script)
+//   A–P  (données formulaire)  → avertissement seul (lecture conseillée)
+//   Q    AVIS_SUP              → supérieurs uniquement  (verrouillage strict)
+//   R    AVIS_PRES             → Présidence uniquement  (verrouillage strict)
+//   S    COMMENTAIRE           → libre (aucune protection)
+//   T–AA (colonnes système)    → avertissement seul (réservé au script)
 //
 // Dropdowns R, S, T : En attente / Approuvé / Rejeté
 // ============================================================
@@ -333,9 +330,11 @@ function configurerProtections(ss, sheet) {
   // ----------------------------------------------------------
   sheet.getProtections(SpreadsheetApp.ProtectionType.RANGE).forEach(p => p.remove());
 
-  // Listes d'emails validateurs
-  const emailsSup  = Object.keys(CONFIG.SUP_NOMS).filter(Boolean);
-  const emailsPres = (CONFIG.EMAILS_PRESIDENCE || []).filter(Boolean);
+  // Listes d'emails validateurs — lues depuis CONFIG.PERSONNEL
+  const sups       = (CONFIG.PERSONNEL || {}).superieurs || {};
+  const emailsSup  = Object.values(sups).map(s => s.email).filter(Boolean);
+  const pres       = (CONFIG.PERSONNEL || {}).presidence || [];
+  const emailsPres = pres.map(p => p.email).filter(Boolean);
 
   // ----------------------------------------------------------
   // 1. Colonnes A–P : données formulaire — avertissement seul
@@ -349,9 +348,7 @@ function configurerProtections(ss, sheet) {
 
   // ----------------------------------------------------------
   // 2. Colonne Q — AVIS_SUP : supérieurs uniquement
-  //    Si SUP_NOMS est vide, la colonne est verrouillée pour tout
-  //    le monde sauf le propriétaire du spreadsheet (le script peut
-  //    toujours écrire car il tourne en tant que propriétaire).
+  //    Si PERSONNEL.superieurs est vide, verrouillée pour le propriétaire seulement.
   // ----------------------------------------------------------
   const pSup = sheet.getRange(2, CONFIG.COL.AVIS_SUP, lastRow - 1).protect();
   pSup.setDescription('Réservé : Supérieurs hiérarchiques');
@@ -360,9 +357,7 @@ function configurerProtections(ss, sheet) {
     pSup.addEditors(emailsSup);
     Logger.log('[OK][Setup] Protection AVIS_SUP — ' + emailsSup.length + ' éditeur(s)');
   } else {
-    // Aucun supérieur défini — colonne accessible uniquement au propriétaire
-    // Ajouter les supérieurs dans CONFIG.SUP_NOMS puis relancer cette fonction.
-    Logger.log('[WARN][Setup] SUP_NOMS vide — col Q verrouillée (propriétaire seulement). ' +
+    Logger.log('[WARN][Setup] PERSONNEL.superieurs vide — col Q verrouillée (propriétaire seulement). ' +
                'Ajoutez les supérieurs dans Config.gs puis relancez "Reconfigurer les protections".');
   }
 

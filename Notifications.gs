@@ -3,45 +3,32 @@
 // Système d'autorisation d'absence — Massaka SAS
 // ============================================================
 
+/**
+ * Retourne le thème visuel — toujours depuis CONFIG.THEME (une seule org).
+ * Les paramètres nomOrg et emailSup sont conservés pour compatibilité.
+ */
 function getThemeEmail(nomOrg, emailSup) {
-  const map = CONFIG.PRESIDENCE_MAP || {};
-
-  // 1. Lookup par email du superviseur
-  const presBySup = emailSup ? map[emailSup] : null;
-  if (presBySup && presBySup.couleur) {
-    return _buildTheme(presBySup, nomOrg);
-  }
-
-  // 2. Lookup par nomOrg
+  const t   = CONFIG.THEME || {};
   const org = nomOrg || CONFIG.NOM_ORG;
-  const presByOrg = Object.values(map).find(p => p.nomOrg === org);
-  if (presByOrg && presByOrg.couleur) {
-    return _buildTheme(presByOrg, org);
-  }
-
-  return { nomOrg: org };
-}
-
-function _buildTheme(p, nomOrg) {
   return {
-    couleur:                     p.couleur,
-    couleurBadge:                p.couleurBadge                || '#f8c542',
-    couleurTexteBadge:           p.couleurTexteBadge           || '#333333',
-    couleurAccent:               p.couleurAccent               || p.couleur,
-    couleurTexte:                p.couleurTexte                || '#ffffff',
-    couleurFondMotif:            p.couleurFondMotif            || '#f0f9fc',
-    couleurFondDuree:            p.couleurFondDuree            || '#fff8e6',
-    couleurLabelDuree:           p.couleurLabelDuree           || '#856404',
-    couleurBoutonRejet:          p.couleurBoutonRejet          || '#dc3545',
-    couleurBoutonApprouver:      p.couleurBoutonApprouver      || p.couleurAccent || p.couleur,
-    couleurTexteBoutonApprouver: p.couleurTexteBoutonApprouver || p.couleurTexte  || '#ffffff',
-    couleurFondTableau:          p.couleurFondTableau          || '#f0f9fc',
-    couleurTexteTableau:         p.couleurTexteTableau         || '#555555',
-    couleurLabelOption1:         p.couleurLabelOption1         || p.couleurAccent || p.couleur,
-    couleurBoutonTableau:        p.couleurBoutonTableau        || p.couleurAccent || p.couleur,
-    couleurTexteBoutonTableau:   p.couleurTexteBoutonTableau   || p.couleurTexte  || '#ffffff',
-    police:                      p.police                      || "'Montserrat', 'Segoe UI', Arial, sans-serif",
-    nomOrg:                      p.nomOrg || nomOrg || CONFIG.NOM_ORG
+    couleur:                     t.couleur                     || '#000000',
+    couleurBadge:                t.couleurBadge                || '#008080',
+    couleurTexteBadge:           t.couleurTexteBadge           || '#ffffff',
+    couleurAccent:               t.couleurAccent               || '#005555',
+    couleurTexte:                t.couleurTexte                || '#ffffff',
+    couleurFondMotif:            t.couleurFondMotif            || '#f0f9fc',
+    couleurFondDuree:            t.couleurFondDuree            || '#fff8e6',
+    couleurLabelDuree:           t.couleurLabelDuree           || '#856404',
+    couleurBoutonRejet:          t.couleurBoutonRejet          || '#dc3545',
+    couleurBoutonApprouver:      t.couleurBoutonApprouver      || t.couleurAccent || '#005555',
+    couleurTexteBoutonApprouver: t.couleurTexteBoutonApprouver || '#ffffff',
+    couleurFondTableau:          t.couleurFondTableau          || '#f0f9fc',
+    couleurTexteTableau:         t.couleurTexteTableau         || '#000000',
+    couleurLabelOption1:         t.couleurLabelOption1         || t.couleurAccent || '#005555',
+    couleurBoutonTableau:        t.couleurBoutonTableau        || t.couleurAccent || '#005555',
+    couleurTexteBoutonTableau:   t.couleurTexteBoutonTableau   || '#ffffff',
+    police:                      t.police                      || "'Montserrat', 'Segoe UI', Arial, sans-serif",
+    nomOrg:                      org
   };
 }
 
