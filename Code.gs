@@ -1,6 +1,6 @@
 // ============================================================
 // Code.gs — Trigger onFormSubmit + rejet automatique 72h
-// Système d'autorisation d'absence — Massaka
+// Système d'autorisation d'absence — Massaka SAS
 // ============================================================
 
 function onFormSubmit(e) {
@@ -10,10 +10,9 @@ function onFormSubmit(e) {
 
   try {
     // ----------------------------------------------------------
-    // 1. Lire les données brutes nécessaires à la règle 72h
+    // 1. Lire les données brutes pour la règle 72h
     // ----------------------------------------------------------
     const typePerm     = sheet.getRange(row, CONFIG.COL.TYPE_PERM).getValue();
-    // "Permission ordinaire" stocke ses dates dans DATE_DEBUT_ORD (col O), pas DATE_DEBUT (col I)
     const colDateDebut = (typePerm === 'Permission ordinaire')
       ? CONFIG.COL.DATE_DEBUT_ORD
       : CONFIG.COL.DATE_DEBUT;
@@ -21,42 +20,32 @@ function onFormSubmit(e) {
     const heureDebut = sheet.getRange(row, CONFIG.COL.HEURE_DEBUT).getValue();
 
     // ----------------------------------------------------------
-    // 1b. Résoudre le supérieur hiérarchique et le workflow depuis le service
-    //     Le formulaire ne collecte plus l'email du supérieur :
-    //     il est déterminé automatiquement via SERVICE_SUP_MAP.
+    // 1b. Résoudre le supérieur et le workflow depuis le service
     // ----------------------------------------------------------
     const service       = sheet.getRange(row, CONFIG.COL.SERVICE).getValue().toString().trim();
     const serviceConfig = (CONFIG.SERVICE_SUP_MAP || {})[service] || {};
     const emailSup      = serviceConfig.sup  || '';
-    // Service inconnu : fallback RH_PRES (évite de bloquer un envoi vers un supérieur inexistant)
-    const workflow      = serviceConfig.workflow || 'RH_PRES';
+    const workflow      = serviceConfig.workflow || 'PRES';
 
     if (!serviceConfig.workflow) {
       log('WARN', 'onFormSubmit',
-        `Service "${service}" absent de SERVICE_SUP_MAP — workflow RH_PRES appliqué par défaut, ligne ${row}`);
+        `Service "${service}" absent de SERVICE_SUP_MAP — workflow PRES appliqué par défaut, ligne ${row}`);
     }
 
     ecrireColonne(sheet, row, CONFIG.COL.EMAIL_SUP, emailSup);
 
     // ----------------------------------------------------------
-    // 2. Générer l'ID de demande en premier (toujours)
-    //    Verrou scriptLock : garantit qu'aucune soumission simultanée
-    //    ne lit le même maxNumero et ne génère un ID en double.
-    //    Le verrou couvre lecture + écriture (les deux doivent être atomiques).
+    // 2. Générer l'ID de demande
     // ----------------------------------------------------------
     const lockID = LockService.getScriptLock();
-    lockID.waitLock(15000); // attend jusqu'à 15 s si une autre soumission est en cours
+    lockID.waitLock(15000);
     const idDemande = genererIdDemande(sheet);
     ecrireColonne(sheet, row, CONFIG.COL.ID_DEMANDE, idDemande);
     lockID.releaseLock();
     log('INFO', 'onFormSubmit', `ID généré : ${idDemande}`);
 
     // ----------------------------------------------------------
-    // 3. RÈGLE MÉTIER : Rejet automatique si délai insuffisant
-    //    Applicable à TOUTES les permissions sans exception.
-    //    Le délai est exprimé en JOURS OUVRABLES (hors week-ends
-    //    et jours fériés listés dans CONFIG.JOURS_FERIES).
-    //    Pour toute urgence, contacter la RH directement.
+    // 3. Rejet automatique si délai insuffisant
     // ----------------------------------------------------------
     {
       const dateHeureDebut = new Date(dateDebut);
@@ -76,9 +65,8 @@ function onFormSubmit(e) {
           `Demande ${idDemande} rejetée automatiquement : ` +
           `${nbJoursOuvr} jour(s) ouvrable(s) < ${delaiMin} requis`);
 
-        ecrireColonne(sheet, row, CONFIG.COL.AVIS_SUP,    '');
-        ecrireColonne(sheet, row, CONFIG.COL.AVIS_RH,     '');
-        ecrireColonne(sheet, row, CONFIG.COL.AVIS_PRES,   '');
+        ecrireColonne(sheet, row, CONFIG.COL.AVIS_SUP,  '');
+        ecrireColonne(sheet, row, CONFIG.COL.AVIS_PRES, '');
         ecrireColonne(sheet, row, CONFIG.COL.COMMENTAIRE,
           `Demande soumise avec un délai insuffisant : ${nbJoursOuvr} jour(s) ouvrable(s) ` +
           `avant le début de l'absence (minimum requis : ${delaiMin} jours ouvrables).`);
@@ -88,12 +76,7 @@ function onFormSubmit(e) {
         envoyerConfirmationFinaleEmploye(
           lireDemande(sheet, row),
           'Rejeté',
-          `Demande hors délai (${delaiMin} jours ouvrables requis). Contactez les RH en cas d'urgence.`
-        );
-        envoyerNotificationFinaleRH(
-          lireDemande(sheet, row),
-          'Rejeté',
-          `Rejet automatique — délai insuffisant (${nbJoursOuvr} jour(s) ouvrable(s), minimum requis : ${delaiMin}).`
+          `Demande hors délai (${delaiMin} jours ouvrables requis).`
         );
 
         log('OK', 'onFormSubmit',
@@ -103,70 +86,45 @@ function onFormSubmit(e) {
     }
 
     // ----------------------------------------------------------
-    // 4. Générer les 3 tokens (UUID uniques)
+    // 4. Générer les tokens (SUP + PRES uniquement)
     // ----------------------------------------------------------
     const tokenSup  = genererUUID();
-    const tokenRH   = genererUUID();
     const tokenPres = genererUUID();
     ecrireColonne(sheet, row, CONFIG.COL.TOKEN_SUP,  tokenSup);
-    ecrireColonne(sheet, row, CONFIG.COL.TOKEN_RH,   tokenRH);
     ecrireColonne(sheet, row, CONFIG.COL.TOKEN_PRES, tokenPres);
     log('INFO', 'initTokens', `Tokens générés pour ${idDemande}`);
 
     // ----------------------------------------------------------
-    // 5. Initialiser les statuts selon le workflow du service
-    //    Les niveaux sautés sont marqués "Approuvé" (non applicable)
-    //    et leur token est immédiatement invalidé.
+    // 5. Initialiser les statuts selon le workflow
     //
-    //    SUP_RH_PRES : Supérieur → RH → Présidence  (circuit complet)
-    //    RH_PRES     : RH → Présidence              (pas de supérieur)
-    //    PRES        : Présidence directement        (ex : service RH)
+    //    SUP_PRES : Supérieur → Présidence
+    //    PRES     : Présidence directement
     // ----------------------------------------------------------
-    let premierNiveau; // premier validateur à notifier
-    if (workflow === 'RH_PRES') {
-      ecrireColonne(sheet, row, CONFIG.COL.AVIS_SUP,  'Approuvé');   // niveau sauté
+    let premierNiveau;
+    if (workflow === 'PRES') {
+      ecrireColonne(sheet, row, CONFIG.COL.AVIS_SUP,  'Approuvé');
       ecrireColonne(sheet, row, CONFIG.COL.TOKEN_SUP, 'INVALIDE_' + tokenSup);
-      ecrireColonne(sheet, row, CONFIG.COL.AVIS_RH,   'En attente');
-      ecrireColonne(sheet, row, CONFIG.COL.AVIS_PRES, 'En attente');
-      premierNiveau = 'RH';
-    } else if (workflow === 'PRES_RH') {
-      // Présidence valide en premier, RH est validateur final
-      ecrireColonne(sheet, row, CONFIG.COL.AVIS_SUP,  'Approuvé');   // niveau sauté
-      ecrireColonne(sheet, row, CONFIG.COL.TOKEN_SUP, 'INVALIDE_' + tokenSup);
-      ecrireColonne(sheet, row, CONFIG.COL.AVIS_RH,   'En attente'); // validateur final
-      ecrireColonne(sheet, row, CONFIG.COL.AVIS_PRES, 'En attente'); // premier validateur
-      premierNiveau = 'Presidence';
-    } else if (workflow === 'PRES') {
-      ecrireColonne(sheet, row, CONFIG.COL.AVIS_SUP,  'Approuvé');   // niveau sauté
-      ecrireColonne(sheet, row, CONFIG.COL.TOKEN_SUP, 'INVALIDE_' + tokenSup);
-      ecrireColonne(sheet, row, CONFIG.COL.AVIS_RH,   'Approuvé');   // niveau sauté
-      ecrireColonne(sheet, row, CONFIG.COL.TOKEN_RH,  'INVALIDE_' + tokenRH);
       ecrireColonne(sheet, row, CONFIG.COL.AVIS_PRES, 'En attente');
       premierNiveau = 'Presidence';
     } else {
-      // SUP_RH_PRES — circuit complet (défaut)
+      // SUP_PRES — circuit complet (défaut)
       ecrireColonne(sheet, row, CONFIG.COL.AVIS_SUP,  'En attente');
-      ecrireColonne(sheet, row, CONFIG.COL.AVIS_RH,   'En attente');
       ecrireColonne(sheet, row, CONFIG.COL.AVIS_PRES, 'En attente');
       premierNiveau = 'Superieur';
     }
     ecrireColonne(sheet, row, CONFIG.COL.STATUT_GLOBAL, 'En cours');
 
     // ----------------------------------------------------------
-    // 6. Notifier le premier validateur selon le workflow du service
-    //    (le dossier Drive est créé uniquement à l'approbation finale)
+    // 6. Notifier le premier validateur
     // ----------------------------------------------------------
-    // Construire l'objet demande une seule fois et injecter emailSup directement
-    // (évite un problème de timing entre ecrireColonne et getValues)
     const demande = Object.assign(lireDemande(sheet, row), { emailSuperieur: emailSup });
-
-    const tokenPremier = { Superieur: tokenSup, RH: tokenRH, Presidence: tokenPres }[premierNiveau];
+    const tokenPremier = { Superieur: tokenSup, Presidence: tokenPres }[premierNiveau];
     envoyerNotificationValidateur(demande, premierNiveau, tokenPremier);
     log('INFO', 'onFormSubmit',
       `Workflow "${workflow}" — premier validateur notifié : ${premierNiveau}`);
 
     // ----------------------------------------------------------
-    // 8. Accusé de réception à l'employé
+    // 7. Accusé de réception à l'employé
     // ----------------------------------------------------------
     envoyerAccuseReceptionEmploye(demande);
 
@@ -180,9 +138,7 @@ function onFormSubmit(e) {
 
 
 // ============================================================
-// onEdit (simple) — Bloque toute re-modification une fois la décision prise.
-// Le traitement du workflow est assuré par le trigger installable
-// "traiterDecisionManuelle" (installé via le menu Absences).
+// onEdit (simple) — Bloque toute re-modification après décision.
 // ============================================================
 function onEdit(e) {
   if (!e || !e.range) return;
@@ -194,13 +150,12 @@ function onEdit(e) {
   const row = e.range.getRow();
   if (row < 2) return;
 
-  const colsSurveillees = [CONFIG.COL.AVIS_SUP, CONFIG.COL.AVIS_RH, CONFIG.COL.AVIS_PRES];
+  const colsSurveillees = [CONFIG.COL.AVIS_SUP, CONFIG.COL.AVIS_PRES];
   if (!colsSurveillees.includes(col)) return;
 
   const ancienneValeur = (e.oldValue !== undefined ? e.oldValue : '').toString();
   const statutGlobal   = sheet.getRange(row, CONFIG.COL.STATUT_GLOBAL).getValue().toString();
 
-  // Bloquer si aucune demande active sur cette ligne
   if (statutGlobal !== 'En cours') {
     e.range.setValue(ancienneValeur);
     const motif = statutGlobal
@@ -215,19 +170,3 @@ function onEdit(e) {
       `Modification annulée - ligne ${row}, col ${col}, statut: "${statutGlobal || 'vide'}"`);
   }
 }
-
-
-// ============================================================
-// STUBS — Implémentés dans DriveManager.gs et Notifications.gs
-// Ces déclarations évitent les erreurs "undefined" si Code.gs
-// est chargé avant les autres fichiers dans l'éditeur Apps Script.
-// ============================================================
-
-// -- DriveManager.gs --
-// function creerDossierEtDoc(demande)            → { dossierID, docID }
-// function deplacerVersDossierStatut(id, nom, s) → void
-
-// -- Notifications.gs --
-// function envoyerNotificationValidateur(demande, niveau, token) → void
-// function envoyerAccuseReceptionEmploye(demande)                → void
-// function envoyerConfirmationFinaleEmploye(demande, dec, motif) → void

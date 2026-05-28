@@ -1,16 +1,9 @@
 // ============================================================
 // Relances.gs — Relances automatiques + outils de maintenance
 // ============================================================
-// Fonctions :
-//   verifierEtRelancer()        — trigger quotidien 08h00
-//   renvoyerValidationManuelle() — menu : renvoyer un email perdu
-//   reprendreTraitement()        — menu : relancer onFormSubmit
-//   nettoyerTriggers()           — menu : supprimer doublons de triggers
-// ============================================================
-
 
 // ============================================================
-// 1. Verifier et relancer — appele automatiquement chaque jour
+// 1. Vérifier et relancer — appelé automatiquement chaque jour
 // ============================================================
 function verifierEtRelancer() {
   const sheet   = getSheetReponses();
@@ -21,70 +14,60 @@ function verifierEtRelancer() {
   const delaiMs  = (CONFIG.DELAI_RELANCE_JOURS || 7) * 24 * 3600 * 1000;
   let   nbRelances = 0;
 
-  // Lecture groupee de toutes les colonnes jusqu'a RELANCE (col 29)
   const data = sheet.getRange(2, 1, lastRow - 1, CONFIG.COL.RELANCE).getValues();
 
   data.forEach((r, i) => {
     const row = i + 2;
 
-    // Ignorer les demandes non "En cours"
     const statut = (r[CONFIG.COL.STATUT_GLOBAL - 1] || '').toString();
     if (statut !== 'En cours') return;
 
-    // Trouver le niveau en attente
     const avisSup  = (r[CONFIG.COL.AVIS_SUP  - 1] || '').toString();
-    const avisRH   = (r[CONFIG.COL.AVIS_RH   - 1] || '').toString();
     const avisPres = (r[CONFIG.COL.AVIS_PRES - 1] || '').toString();
 
     let niveau = null, token = null;
     if (avisSup  === 'En attente') { niveau = 'Superieur';  token = (r[CONFIG.COL.TOKEN_SUP  - 1] || '').toString(); }
-    else if (avisRH   === 'En attente') { niveau = 'RH';         token = (r[CONFIG.COL.TOKEN_RH   - 1] || '').toString(); }
     else if (avisPres === 'En attente') { niveau = 'Presidence'; token = (r[CONFIG.COL.TOKEN_PRES - 1] || '').toString(); }
 
     if (!niveau || !token) return;
 
-    // Ignorer si le token est deja consomme
     if (token.startsWith('UTILISE_') || token.startsWith('INVALIDE_')) return;
 
-    // Ignorer si la date de debut est deja passee — relance inutile
     const dateDebutRaw = r[CONFIG.COL.DATE_DEBUT - 1] || r[CONFIG.COL.DATE_DEBUT_ORD - 1];
     const dateDebut    = dateDebutRaw ? new Date(dateDebutRaw) : null;
     if (dateDebut && !isNaN(dateDebut) && today >= dateDebut) {
-      log('INFO', 'Relances', `Relance ignoree — date de debut passee (ligne ${row})`);
+      log('INFO', 'Relances', `Relance ignorée — date de début passée (ligne ${row})`);
       return;
     }
 
-    // Verifier le delai depuis derniere relance (ou depuis la soumission)
-    const dernRelanceRaw = r[CONFIG.COL.RELANCE      - 1];
-    const horodateurRaw  = r[CONFIG.COL.HORODATEUR   - 1];
+    const dernRelanceRaw = r[CONFIG.COL.RELANCE    - 1];
+    const horodateurRaw  = r[CONFIG.COL.HORODATEUR - 1];
     const dateRef = dernRelanceRaw ? new Date(dernRelanceRaw) : new Date(horodateurRaw);
     if (isNaN(dateRef) || (today - dateRef) < delaiMs) return;
 
-    // Envoyer la relance
     try {
       const demande = lireDemande(sheet, row);
       envoyerNotificationValidateur(demande, niveau, token, true);
       ecrireColonne(sheet, row, CONFIG.COL.RELANCE, today);
       nbRelances++;
-      log('OK', 'Relances', `Relance envoyee - ${demande.idDemande} niveau ${niveau}`);
+      log('OK', 'Relances', `Relance envoyée - ${demande.idDemande} niveau ${niveau}`);
     } catch (err) {
-      log('ERREUR', 'Relances', `Echec relance ligne ${row} : ${err.toString()}`);
+      log('ERREUR', 'Relances', `Échec relance ligne ${row} : ${err.toString()}`);
     }
   });
 
-  log('OK', 'Relances', `Verification terminee : ${nbRelances} relance(s) envoyee(s)`);
+  log('OK', 'Relances', `Vérification terminée : ${nbRelances} relance(s) envoyée(s)`);
 }
 
 
 // ============================================================
 // 2. Renvoyer manuellement l'email de validation
-//    (si le validateur a perdu son lien)
 // ============================================================
 function renvoyerValidationManuelle() {
   const ui  = SpreadsheetApp.getUi();
   const rep = ui.prompt(
     'Renvoyer la validation',
-    'Entrez la reference de la demande (ex: MSK-2026-0001) :',
+    'Entrez la référence de la demande (ex: MSK-2026-0001) :',
     ui.ButtonSet.OK_CANCEL
   );
   if (rep.getSelectedButton() !== ui.Button.OK) return;
@@ -94,9 +77,8 @@ function renvoyerValidationManuelle() {
 
   const sheet   = getSheetReponses();
   const lastRow = sheet.getLastRow();
-  if (lastRow < 2) { ui.alert('Aucune donnee dans le sheet.'); return; }
+  if (lastRow < 2) { ui.alert('Aucune donnée dans le sheet.'); return; }
 
-  // Chercher la ligne correspondant a la reference
   const ids = sheet.getRange(2, CONFIG.COL.ID_DEMANDE, lastRow - 1, 1).getValues();
   let targetRow = -1;
   for (let i = 0; i < ids.length; i++) {
@@ -107,7 +89,7 @@ function renvoyerValidationManuelle() {
   }
 
   if (targetRow < 0) {
-    ui.alert('Reference introuvable : ' + ref + '\nVerifiez le format (ex: MSK-2026-0001).');
+    ui.alert('Référence introuvable : ' + ref + '\nVérifiez le format (ex: MSK-2026-0001).');
     return;
   }
 
@@ -117,16 +99,14 @@ function renvoyerValidationManuelle() {
     return;
   }
 
-  // Identifier le niveau en attente
   const niveau = _getNiveauEnAttente(sheet, targetRow);
   if (!niveau) {
-    ui.alert('Aucun niveau "En attente" trouve pour cette demande.');
+    ui.alert('Aucun niveau "En attente" trouvé pour cette demande.');
     return;
   }
 
   const colToken = {
     'Superieur':  CONFIG.COL.TOKEN_SUP,
-    'RH':         CONFIG.COL.TOKEN_RH,
     'Presidence': CONFIG.COL.TOKEN_PRES
   }[niveau];
 
@@ -141,19 +121,18 @@ function renvoyerValidationManuelle() {
   ecrireColonne(sheet, targetRow, CONFIG.COL.RELANCE, new Date());
 
   log('OK', 'Relances', `Renvoi manuel - ${ref} - niveau ${niveau}`);
-  ui.alert('Email renvoye au validateur (' + niveau + ') pour la demande ' + ref + '.');
+  ui.alert('Email renvoyé au validateur (' + niveau + ') pour la demande ' + ref + '.');
 }
 
 
 // ============================================================
-// 3. Reprendre un traitement echoue
-//    Simule onFormSubmit sur une ligne existante
+// 3. Reprendre un traitement échoué
 // ============================================================
 function reprendreTraitement() {
   const ui  = SpreadsheetApp.getUi();
   const rep = ui.prompt(
-    'Reprendre un traitement echoue',
-    'Entrez le numero de ligne (ex: 5) ou la reference (ex: MSK-2026-0001) :',
+    'Reprendre un traitement échoué',
+    'Entrez le numéro de ligne (ex: 5) ou la référence (ex: MSK-2026-0001) :',
     ui.ButtonSet.OK_CANCEL
   );
   if (rep.getSelectedButton() !== ui.Button.OK) return;
@@ -176,20 +155,19 @@ function reprendreTraitement() {
   }
 
   if (targetRow < 2 || targetRow > lastRow) {
-    ui.alert('Ligne / reference introuvable.');
+    ui.alert('Ligne / référence introuvable.');
     return;
   }
 
-  // Avertir si la ligne a deja un statut
   const statutExistant = sheet.getRange(targetRow, CONFIG.COL.STATUT_GLOBAL).getValue().toString();
   const idExistant     = sheet.getRange(targetRow, CONFIG.COL.ID_DEMANDE).getValue().toString();
 
   if (statutExistant && statutExistant !== '') {
     const confirm = ui.alert(
       'Attention',
-      'La ligne ' + targetRow + ' a deja le statut "' + statutExistant + '"' +
+      'La ligne ' + targetRow + ' a déjà le statut "' + statutExistant + '"' +
       (idExistant ? ' (ref : ' + idExistant + ')' : '') + '.\n\n' +
-      'Relancer va regenerer l\'ID et les tokens (les anciens liens email deviendront invalides).\n\n' +
+      'Relancer va regénérer l\'ID et les tokens (les anciens liens email deviendront invalides).\n\n' +
       'Continuer ?',
       ui.ButtonSet.YES_NO
     );
@@ -197,13 +175,12 @@ function reprendreTraitement() {
   }
 
   try {
-    // Construire un faux evenement pour simuler onFormSubmit
     const fakeEvent = { range: sheet.getRange(targetRow, 1) };
     onFormSubmit(fakeEvent);
     log('OK', 'Relances', `Traitement repris manuellement pour la ligne ${targetRow}`);
-    ui.alert('Traitement relance pour la ligne ' + targetRow + '. Verifiez les logs Apps Script pour confirmer.');
+    ui.alert('Traitement relancé pour la ligne ' + targetRow + '. Vérifiez les logs Apps Script pour confirmer.');
   } catch (err) {
-    log('ERREUR', 'Relances', `Echec reprise ligne ${targetRow} : ${err.toString()}`);
+    log('ERREUR', 'Relances', `Échec reprise ligne ${targetRow} : ${err.toString()}`);
     ui.alert('Erreur lors de la reprise : ' + err.toString());
   }
 }
@@ -223,16 +200,16 @@ function nettoyerTriggers() {
     if (seen[fn]) {
       ScriptApp.deleteTrigger(t);
       nbSupprimes++;
-      log('OK', 'Maintenance', `Trigger en double supprime : ${fn}`);
+      log('OK', 'Maintenance', `Trigger en double supprimé : ${fn}`);
     } else {
       seen[fn] = true;
     }
   });
 
   if (nbSupprimes === 0) {
-    ui.alert('Aucun doublon trouve. Tous les triggers sont uniques.');
+    ui.alert('Aucun doublon trouvé. Tous les triggers sont uniques.');
   } else {
-    ui.alert(nbSupprimes + ' trigger(s) en double supprime(s).\nVerifiez Apps Script > Declencheurs pour confirmer.');
+    ui.alert(nbSupprimes + ' trigger(s) en double supprimé(s).\nVérifiez Apps Script > Déclencheurs pour confirmer.');
   }
 }
 
@@ -242,11 +219,9 @@ function nettoyerTriggers() {
 // ============================================================
 function _getNiveauEnAttente(sheet, row) {
   const avisSup  = sheet.getRange(row, CONFIG.COL.AVIS_SUP ).getValue().toString();
-  const avisRH   = sheet.getRange(row, CONFIG.COL.AVIS_RH  ).getValue().toString();
   const avisPres = sheet.getRange(row, CONFIG.COL.AVIS_PRES).getValue().toString();
 
   if (avisSup  === 'En attente') return 'Superieur';
-  if (avisRH   === 'En attente') return 'RH';
   if (avisPres === 'En attente') return 'Presidence';
   return null;
 }

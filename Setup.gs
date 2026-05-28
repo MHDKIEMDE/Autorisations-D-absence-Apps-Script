@@ -177,7 +177,6 @@ function initialiserProjet() {
   const headers = [
     { col: CONFIG.COL.ID_DEMANDE,    nom: 'ID_Demande'       },
     { col: CONFIG.COL.TOKEN_SUP,     nom: 'Token_Superieur'  },
-    { col: CONFIG.COL.TOKEN_RH,      nom: 'Token_RH'         },
     { col: CONFIG.COL.TOKEN_PRES,    nom: 'Token_Presidence' },
     { col: CONFIG.COL.STATUT_GLOBAL, nom: 'Statut_Global'    },
     { col: CONFIG.COL.DATE_CLOTURE,  nom: 'Date_Cloture'     },
@@ -255,14 +254,14 @@ function initialiserProjet() {
   // 4. Confirmation
   // ----------------------------------------------------------
   SpreadsheetApp.getUi().alert(
-    'Initialisation reussie !\n\n' +
-    'Prochaines etapes (tout dans Config.gs) :\n\n' +
+    'Initialisation réussie !\n\n' +
+    'Prochaines étapes (tout dans Config.gs) :\n\n' +
     '1. Renseigner les vrais emails :\n' +
-    '   EMAIL_RH, EMAIL_PRESIDENCE_1, EMAIL_PRESIDENCE_2\n\n' +
-    '2. Ajouter les superieurs dans SUP_NOMS :\n' +
-    '   "email@massaka.com": "Prenom Nom"\n\n' +
+    '   EMAILS_PRESIDENCE: ["email1@...", "email2@..."]\n\n' +
+    '2. Ajouter les supérieurs dans SUP_NOMS :\n' +
+    '   "email@massaka.com": "Prénom Nom"\n\n' +
     '3. Renseigner DRIVE_DOSSIER_RACINE et DRIVE_DOSSIER_TEMPLATE\n\n' +
-    '4. Deployer la Web App puis copier l\'URL dans WEBAPP_URL\n\n' +
+    '4. Déployer la Web App puis copier l\'URL dans WEBAPP_URL\n\n' +
     '5. Tester avec une soumission formulaire.'
   );
 }
@@ -336,9 +335,7 @@ function configurerProtections(ss, sheet) {
 
   // Listes d'emails validateurs
   const emailsSup  = Object.keys(CONFIG.SUP_NOMS).filter(Boolean);
-  const emailsRH   = [CONFIG.EMAIL_RH].filter(Boolean);
-  const emailsPres = [CONFIG.EMAIL_PRESIDENCE].filter(Boolean);
-  const tousValidateurs = [...emailsSup, ...emailsRH, ...emailsPres];
+  const emailsPres = (CONFIG.EMAILS_PRESIDENCE || []).filter(Boolean);
 
   // ----------------------------------------------------------
   // 1. Colonnes A–P : données formulaire — avertissement seul
@@ -370,32 +367,20 @@ function configurerProtections(ss, sheet) {
   }
 
   // ----------------------------------------------------------
-  // 3. Colonne R — AVIS_RH : RH uniquement
-  // ----------------------------------------------------------
-  const pRH = sheet.getRange(2, CONFIG.COL.AVIS_RH, lastRow - 1).protect();
-  pRH.setDescription('Réservé : Responsable RH');
-  pRH.removeEditors(pRH.getEditors());
-  if (emailsRH.length > 0) {
-    pRH.addEditors(emailsRH);
-    Logger.log('[OK][Setup] Protection AVIS_RH — ' + CONFIG.EMAIL_RH);
-  }
-
-  // ----------------------------------------------------------
-  // 4. Colonne S — AVIS_PRES : Présidence uniquement
+  // 3. Colonne R — AVIS_PRES : Présidence uniquement
   // ----------------------------------------------------------
   const pPres = sheet.getRange(2, CONFIG.COL.AVIS_PRES, lastRow - 1).protect();
   pPres.setDescription('Réservé : Présidence');
   pPres.removeEditors(pPres.getEditors());
   if (emailsPres.length > 0) {
     pPres.addEditors(emailsPres);
-    Logger.log('[OK][Setup] Protection AVIS_PRES — ' + CONFIG.EMAIL_PRESIDENCE);
+    Logger.log('[OK][Setup] Protection AVIS_PRES — ' + emailsPres.join(', '));
   }
 
   // ----------------------------------------------------------
-  // 5. Colonne U — COMMENTAIRE : aucune protection (libre)
-  //    Accessible à tous — le motif de rejet peut être saisi par n'importe qui.
+  // 4. Colonne S — COMMENTAIRE : aucune protection (libre)
   // ----------------------------------------------------------
-  Logger.log('[OK][Setup] Colonne U (Commentaire) — sans protection (libre)');
+  Logger.log('[OK][Setup] Colonne S (Commentaire) — sans protection (libre)');
 
   // ----------------------------------------------------------
   // 6. Colonnes V–AD : colonnes système — avertissement seul
@@ -421,22 +406,20 @@ function configurerProtections(ss, sheet) {
   // On couvre 2000 lignes pour inclure les futures demandes automatiquement.
   const nbLignesValidation = Math.max(lastRow - 1, 2000);
   sheet.getRange(2, CONFIG.COL.AVIS_SUP,  nbLignesValidation).setDataValidation(regleAvis);
-  sheet.getRange(2, CONFIG.COL.AVIS_RH,   nbLignesValidation).setDataValidation(regleAvis);
   sheet.getRange(2, CONFIG.COL.AVIS_PRES, nbLignesValidation).setDataValidation(regleAvis);
-  Logger.log('[OK][Setup] Validation de donnees (dropdown) configuree sur Q, R, S');
+  Logger.log('[OK][Setup] Validation de données (dropdown) configurée sur Q et R');
 
   try {
     SpreadsheetApp.getUi().alert(
       '✅ Protections configurées !\n\n' +
-      '• Colonne R (Avis Supérieur) → ' + (emailsSup.length > 0 ? emailsSup.join(', ') : '⚠️ aucun supérieur défini') + '\n' +
-      '• Colonne S (Avis RH)        → ' + (CONFIG.EMAIL_RH || '⚠️ non défini') + '\n' +
-      '• Colonne T (Avis Présidence)→ ' + (CONFIG.EMAIL_PRESIDENCE || '⚠️ non défini') + '\n' +
-      '• Colonne U (Commentaire)    → libre (accessible à tous)\n' +
-      '• Colonnes A–Q et V–AD       → avertissement (réservé script/formulaire)\n\n' +
-      'Un menu déroulant (En attente / Approuvé / Rejeté) a été ajouté sur R, S, T.'
+      '• Colonne Q (Avis Supérieur)  → ' + (emailsSup.length > 0 ? emailsSup.join(', ') : '⚠️ aucun supérieur défini') + '\n' +
+      '• Colonne R (Avis Présidence) → ' + (emailsPres.length > 0 ? emailsPres.join(', ') : '⚠️ non défini') + '\n' +
+      '• Colonne S (Commentaire)     → libre (accessible à tous)\n' +
+      '• Colonnes A–P et T–AA        → avertissement (réservé script/formulaire)\n\n' +
+      'Un menu déroulant (En attente / Approuvé / Rejeté) a été ajouté sur Q et R.'
     );
   } catch (e) {
-    Logger.log('[INFO][Setup] Alert ignoree (pas de contexte UI — normal si execute depuis l\'editeur).');
+    Logger.log('[INFO][Setup] Alert ignorée (pas de contexte UI — normal si exécuté depuis l\'éditeur).');
   }
 }
 

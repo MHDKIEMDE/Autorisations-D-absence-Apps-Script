@@ -17,74 +17,48 @@ const CONFIG = {
   // ----------------------------------------------------------
   // ⏱️  Délai minimum de préavis (toutes permissions sans exception)
   //     Le comptage exclut les samedis, dimanches et jours fériés.
-  //     Pour toute urgence, contacter la RH directement.
   // ----------------------------------------------------------
-  DELAI_MIN_JOURS_OUVRABLES: 3,   // 3 jours ouvrables minimum avant le début
-  DELAI_RELANCE_JOURS:       1,   // Relance si pas de réponse après N jours
+  DELAI_MIN_JOURS_OUVRABLES: 3,
+  DELAI_RELANCE_JOURS:       1,
 
   // ----------------------------------------------------------
   // 📅  Jours fériés locaux — format 'YYYY-MM-DD'
-  //     Ces jours sont exclus du comptage des jours ouvrables.
-  //     Mettre à jour chaque année.
   // ----------------------------------------------------------
   JOURS_FERIES: [
-    // — Fêtes fixes —
-    '2026-01-01',  // Jour de l'An
-    '2026-03-08',  // Journée internationale des droits de la femme
-    '2026-05-01',  // Fête du Travail
-    '2026-05-15',  // Journée des coutumes et traditions
-    '2026-08-15',  // Assomption
-    '2026-12-11',  // Fête nationale (Proclamation de la République)
-    '2026-12-25',  // Noël
-    // — Fêtes à dates mobiles 2026 (à confirmer selon croissant de lune pour les fêtes islamiques) —
-    '2026-05-14',  // Ascension (40 jours après Pâques, 5 avril 2026)
-    '2026-03-20',  // Aïd el-Fitr / Korité (1er Shawwal 1447)
-    '2026-05-26',  // Aïd el-Kebir / Tabaski (10 Dhou al-Hijja 1447)
-    '2026-09-24'   // Maouloud (12 Rabi' al-Awwal 1448 ≈ 24/09)
+    '2026-01-01',
+    '2026-03-08',
+    '2026-05-01',
+    '2026-05-15',
+    '2026-08-15',
+    '2026-12-11',
+    '2026-12-25',
+    '2026-05-14',
+    '2026-03-20',
+    '2026-05-26',
+    '2026-09-24'
   ],
 
   // ----------------------------------------------------------
-  // ✉️  Emails des validateurs — à renseigner ici
+  // ✉️  Présidence — 2 validateurs
+  //     Le premier qui valide clôture le niveau.
+  //     Le second reçoit une notification "X a déjà validé".
   // ----------------------------------------------------------
-  EMAIL_RH:           'rh@massaka.com',
-  NOM_RH:             'Responsable RH',
-
-  // Présidence par défaut — utilisée si le superviseur n'est pas dans PRESIDENCE_MAP
-  EMAIL_PRESIDENCE: 'president@massakasas.com',
-  NOM_PRESIDENCE:   'Président Massaka SAS',
+  EMAILS_PRESIDENCE: [
+    'president1@massaka.com',   // ← à remplacer
+    'president2@massaka.com'    // ← à remplacer
+  ],
+  NOMS_PRESIDENCE: [
+    'Président Massaka SAS',    // ← à remplacer
+    'Co-Président Massaka SAS'  // ← à remplacer
+  ],
 
   // ----------------------------------------------------------
-  // 🏛️  Mapping supérieur hiérarchique → Présidence compétente
-  //
-  //     Clé   = email exact du supérieur (identique à SUP_NOMS)
-  //     Champs obligatoires :
-  //       email          — email de la Présidence à notifier
-  //       nom            — nom affiché dans les emails
-  //     Champs visuels (personnalisation des emails) :
-  //       couleur           — fond de l'entête email
-  //       couleurBadge      — fond du badge
-  //       couleurTexteBadge — texte du badge (#333333 par défaut)
-  //       couleurAccent     — boutons Approuver, bordures, titres section
-  //       couleurTexte      — texte sur l'entête (#ffffff ou #333333)
-  //       couleurFondMotif  — fond de la card Motif (#f0f9fc par défaut)
-  //       couleurFondDuree  — fond de la card Durée (#fff8e6 par défaut)
-  //       couleurLabelDuree — label "Durée" dans la card (#856404 par défaut)
-  //       couleurBoutonRejet — bouton Rejeter (#dc3545 par défaut)
-  //       police            — font-family CSS
-  //
-  //     Deux types d'entrées possibles :
-  //       1. Clé = email du supérieur  → thème spécifique + présidence compétente
-  //       2. Clé = nom de l'org        → thème par défaut de l'organisation (fallback)
-  //
-  //     Si un supérieur n'est pas listé → fallback sur l'entrée dont nomOrg correspond,
-  //     sinon EMAIL_PRESIDENCE et thème Massaka SAS par défaut.
+  // 🏛️  Thème visuel Massaka SAS
   // ----------------------------------------------------------
   PRESIDENCE_MAP: {
-
-    // ── Thèmes par défaut par organisation (fallback) ─────────────────────────
     'Massaka SAS': {
-      email:                     'president@massakasas.com',
-      nom:                       'Président Massaka SAS',
+      emails:                    ['president1@massaka.com', 'president2@massaka.com'],
+      noms:                      ['Président Massaka SAS', 'Co-Président Massaka SAS'],
       nomOrg:                    'Massaka SAS',
       couleur:                   '#000000',
       couleurBadge:              '#008080',
@@ -104,93 +78,29 @@ const CONFIG = {
       couleurTexteBoutonTableau:   '#ffffff',
       police:                      "'Montserrat', 'Segoe UI', Arial, sans-serif"
     },
-    'Agribusiness TV': {
-      email:                     'president@agribusinesstv.com',
-      nom:                       'Président Agribusiness TV',
-      nomOrg:                    'Agribusiness TV',
-      couleur:                   '#015438',
-      couleurBadge:              '#7ED957',
-      couleurTexteBadge:         '#1a3a1a',
-      couleurAccent:             '#015438',
-      couleurTexte:              '#ffffff',
-      couleurFondMotif:          '#f0faf3',
-      couleurFondDuree:          '#f5ffe8',
-      couleurLabelDuree:         '#3a6604',
-      couleurBoutonRejet:          '#dc3545',
-      couleurBoutonApprouver:      '#7ED957',
-      couleurTexteBoutonApprouver: '#000000',
-      couleurFondTableau:          '#015438',
-      couleurTexteTableau:       '#ffffff',
-      couleurLabelOption1:       '#ffffff',
-      couleurBoutonTableau:      '#7ED957',
-      couleurTexteBoutonTableau: '#000000',
-      police:                    "'Proxima Nova', 'Segoe UI', Arial, sans-serif"
-    },
-
-    // ── Supérieurs spécifiques (override — clé = email du supérieur) ──────────
-    // 'sup@massaka.com': {
-    //   email:              'president@massaka.com',
-    //   nom:                'Président Massaka',
-    //   nomOrg:             'Massaka SAS',
-    //   couleur:            '#000000',
-    //   couleurBadge:       '#f8c542',
-    //   couleurTexteBadge:  '#333333',
-    //   couleurAccent:      '#016579',
-    //   couleurTexte:       '#ffffff',
-    //   couleurFondMotif:   '#f0f9fc',
-    //   couleurFondDuree:   '#fff8e6',
-    //   couleurLabelDuree:  '#856404',
-    //   couleurBoutonRejet: '#dc3545',
-    //   police:             "'Montserrat', 'Segoe UI', Arial, sans-serif",
-    // },
-
   },
 
   // ----------------------------------------------------------
-  // 🏢  Mapping Service → Supérieur hiérarchique + Circuit de validation
+  // 🏢  Mapping Service → Supérieur hiérarchique + Circuit
   //
-  //     Clé     = valeur EXACTE du champ "Service" dans le formulaire
-  //     sup     = email du supérieur hiérarchique (null si sans supérieur)
-  //     workflow = circuit de validation :
-  //       'SUP_RH_PRES' — Supérieur → RH → Présidence  (circuit complet)
-  //       'RH_PRES'     — RH → Présidence              (pas de supérieur)
-  //       'PRES'        — Présidence directement        (validateur final unique)
-  //       'PRES_RH'     — Présidence → RH              (RH est validateur final, ex : Administration)
-  //
-  //     À chaque soumission, le script lit le service, résout l'email
-  //     du supérieur et initialise automatiquement les niveaux selon
-  //     le workflow défini (les niveaux sautés sont marqués "Approuvé").
-  //
-  //     ⚠️  Supprimer la question "Supérieur hiérarchique" du Google Form.
+  //     Circuits disponibles :
+  //       'SUP_PRES' — Supérieur → Présidence
+  //       'PRES'     — Présidence directement
   // ----------------------------------------------------------
   SERVICE_SUP_MAP: {
-
-    // ── MEDIAPROD ─────────────────────────────────────────────────────────────
-    'MEDIAPROD':                         { sup: 'sup.mediaprod@massaka.com',        workflow: 'SUP_RH_PRES', nomOrg: 'Massaka SAS'     },
-    'Administration (Massaka SAS)':      { sup: null,                               workflow: 'PRES_RH',     nomOrg: 'Massaka SAS'     },
-    'Chef de section — MEDIAPROD':       { sup: null,                               workflow: 'PRES_RH',     nomOrg: 'Massaka SAS'     },
-
-    // ── Agribusiness TV ──────────────────────────────────────────────────────
-    'Chef de section — AGRIBUSINESS TV': { sup: null,                               workflow: 'PRES_RH',     nomOrg: 'Agribusiness TV' },
-    'Editoriale (Agribusiness TV)':      { sup: 'sup.editorial@agribusiness.com',   workflow: 'SUP_RH_PRES', nomOrg: 'Agribusiness TV' },
-    'Techniciens Éditorial (Agribusiness TV)': { sup: 'sup.tech.edit@agribusiness.com', workflow: 'SUP_RH_PRES', nomOrg: 'Agribusiness TV' },
-
+    'CpD (fadiilah@agence-mediaprod.com)':              { sup: 'fadiilah@agence-mediaprod.com',  workflow: 'SUP_PRES', nomOrg: 'Massaka SAS' },
+    'Digitale (yann@agence-mediaprod.com)':             { sup: 'yann@agence-mediaprod.com',       workflow: 'SUP_PRES', nomOrg: 'Massaka SAS' },
+    'Technique (eugene@agence-mediaprod.com)':          { sup: 'eugene@agence-mediaprod.com',     workflow: 'SUP_PRES', nomOrg: 'Massaka SAS' },
+    'Administratif et financie (nawsheen@massaka.net)': { sup: null,                              workflow: 'PRES',     nomOrg: 'Massaka SAS' },
   },
 
   // ----------------------------------------------------------
   // 👤  Noms des supérieurs hiérarchiques
-  //     Clé = email exact (identique aux champs sup de SERVICE_SUP_MAP)
-  //     Valeur = nom affiché dans les emails
   // ----------------------------------------------------------
   SUP_NOMS: {
-
-    // ── MEDIAPROD ─────────────────────────────────────────────────────────────
-    'sup.mediaprod@massaka.com':       'Prénom Nom — Responsable MEDIAPROD',
-
-    // ── Agribusiness TV ──────────────────────────────────────────────────────
-    'sup.editorial@agribusiness.com':  'Prénom Nom — Responsable Éditorial',
-    'sup.tech.edit@agribusiness.com':  'Prénom Nom — Responsable Technique (Éditorial)',
-
+    'fadiilah@agence-mediaprod.com': 'Responsable CpD',          // ← à remplacer
+    'yann@agence-mediaprod.com':     'Responsable Digitale',     // ← à remplacer
+    'eugene@agence-mediaprod.com':   'Responsable Technique',    // ← à remplacer
   },
 
   // ----------------------------------------------------------
@@ -210,38 +120,36 @@ const CONFIG = {
   NOM_ORG: 'Massaka SAS',
 
   // ----------------------------------------------------------
-  // 📊  Index des colonnes (base 1 — A=1 ... AB=28)
+  // 📊  Index des colonnes (base 1 — A=1)
+  //     Matricule supprimé — SERVICE est maintenant en col C (3)
   // ----------------------------------------------------------
   COL: {
     HORODATEUR:    1,   // A  — Timestamp soumission
     EMAIL_EMPLOYE: 2,   // B  — Email employé
-    MATRICULE:     3,   // C  — Matricule
-    NOM:           4,   // D  — Nom
-    PRENOM:        5,   // E  — Prénom
-    SERVICE:       6,   // F  — Service / Fonction
-    TYPE_PERM:     7,   // G  — Type de permission
-    TYPE_ABSENCE:  8,   // H  — Type d'absence (Permission exceptionnelle)
-    DATE_DEBUT:    9,   // I  — Date de début
-    HEURE_DEBUT:   10,  // J  — Heure de début
-    DATE_FIN:      11,  // K  — Date de fin
-    HEURE_FIN:     12,  // L  — Heure de fin
-    MOTIF_LONG:     13,  // M  — Motif (Permission ordinaire)
-    NB_JOURS:       14,  // N  — Nombre de jours
-    DATE_DEBUT_ORD: 15,  // O  — Date du début (Permission ordinaire)
-    DATE_FIN_ORD:   16,  // P  — Date du fin (Permission ordinaire)
-    EMAIL_SUP:      17,  // Q  — Email supérieur (résolu automatiquement via SERVICE_SUP_MAP)
-    AVIS_SUP:       18,  // R  — Avis supérieur
-    AVIS_RH:        19,  // S  — Avis RH
-    AVIS_PRES:      20,  // T  — Avis Présidence
-    COMMENTAIRE:    21,  // U  — Motif de rejet / commentaire
-    ID_DEMANDE:     22,  // V  — MSK-2026-0001
-    TOKEN_SUP:      23,  // W  — Token supérieur
-    TOKEN_RH:       24,  // X  — Token RH
-    TOKEN_PRES:     25,  // Y  — Token Présidence
-    STATUT_GLOBAL:  26,  // Z  — Statut global
-    DATE_CLOTURE:   27,  // AA — Date de clôture
-    DRIVE_DOSSIER:  28,  // AB — ID dossier Drive
-    DRIVE_DOC:      29,  // AC — ID Google Doc
-    RELANCE:        30   // AD — Date derniere relance automatique
+    NOM:           3,   // C  — Nom
+    PRENOM:        4,   // D  — Prénom
+    SERVICE:       5,   // E  — Service / Département
+    TYPE_PERM:     6,   // F  — Type de permission
+    TYPE_ABSENCE:  7,   // G  — Type d'absence (Permission exceptionnelle)
+    DATE_DEBUT:    8,   // H  — Date de début
+    HEURE_DEBUT:   9,   // I  — Heure de début
+    DATE_FIN:      10,  // J  — Date de fin
+    HEURE_FIN:     11,  // K  — Heure de fin
+    MOTIF_LONG:    12,  // L  — Motif (Permission ordinaire)
+    NB_JOURS:      13,  // M  — Nombre de jours
+    DATE_DEBUT_ORD: 14, // N  — Date du début (Permission ordinaire)
+    DATE_FIN_ORD:   15, // O  — Date du fin (Permission ordinaire)
+    EMAIL_SUP:      16, // P  — Email supérieur (résolu automatiquement)
+    AVIS_SUP:       17, // Q  — Avis supérieur
+    AVIS_PRES:      18, // R  — Avis Présidence
+    COMMENTAIRE:    19, // S  — Motif de rejet / commentaire
+    ID_DEMANDE:     20, // T  — MSK-2026-0001
+    TOKEN_SUP:      21, // U  — Token supérieur
+    TOKEN_PRES:     22, // V  — Token Présidence
+    STATUT_GLOBAL:  23, // W  — Statut global
+    DATE_CLOTURE:   24, // X  — Date de clôture
+    DRIVE_DOSSIER:  25, // Y  — ID dossier Drive
+    DRIVE_DOC:      26, // Z  — ID Google Doc
+    RELANCE:        27  // AA — Date dernière relance automatique
   }
 };

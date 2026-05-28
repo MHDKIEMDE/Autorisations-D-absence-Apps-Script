@@ -93,7 +93,6 @@ function remplirTemplate(docId, demande) {
     '{{ID_DEMANDE}}':      demande.idDemande        || '',
     '{{NOM}}':             demande.nom               || '',
     '{{PRENOM}}':          demande.prenom            || '',
-    '{{MATRICULE}}':       demande.matricule         || '',
     '{{SERVICE}}':         demande.service           || '',
     '{{TYPE_PERMISSION}}': demande.typePerm          || '',
     '{{TYPE_ABSENCE}}':    demande.typeAbsence  || demande.motifLong  || '',
@@ -132,7 +131,6 @@ function mettreAJourDoc(demande) {
     const body = doc.getBody();
 
     body.replaceText('{{AVIS_SUPERIEUR}}',  demande.avisSuperieur || 'En attente');
-    body.replaceText('{{AVIS_RH}}',         demande.avisRH        || '—');
     body.replaceText('{{AVIS_PRESIDENCE}}', demande.avisPres      || '—');
     body.replaceText('{{COMMENTAIRE}}',     demande.commentaire   || '');
 

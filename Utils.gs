@@ -13,14 +13,13 @@ function genererUUID() {
 
 function genererIdDemande(sheet) {
   const annee   = new Date().getFullYear();
-  const prefixe = `MSK-${annee}-`;          // ex : "MSK-2026-"
+  const prefixe = `MSK-${annee}-`;
   const lastRow = sheet.getLastRow();
   let maxNumero = 0;
 
   if (lastRow > 1) {
     const vals = sheet.getRange(2, CONFIG.COL.ID_DEMANDE, lastRow - 1, 1).getValues();
     vals.forEach(([val]) => {
-      // On ne compte que les IDs de l'année en cours (ignore les années passées)
       if (val && typeof val === 'string' && val.startsWith(prefixe)) {
         const num = parseInt(val.slice(prefixe.length), 10);
         if (!isNaN(num) && num > maxNumero) maxNumero = num;
@@ -59,7 +58,6 @@ function lireDemande(sheet, row) {
   return {
     idDemande:      r[CONFIG.COL.ID_DEMANDE    - 1] || '',
     emailEmploye:   r[CONFIG.COL.EMAIL_EMPLOYE - 1] || '',
-    matricule:      r[CONFIG.COL.MATRICULE     - 1] || '',
     nom:            r[CONFIG.COL.NOM           - 1] || '',
     prenom:         r[CONFIG.COL.PRENOM        - 1] || '',
     nomComplet:     `${r[CONFIG.COL.NOM - 1] || ''} ${r[CONFIG.COL.PRENOM - 1] || ''}`.trim(),
@@ -79,50 +77,44 @@ function lireDemande(sheet, row) {
     dateDebutOrd:   r[CONFIG.COL.DATE_DEBUT_ORD - 1] ? formatDate(r[CONFIG.COL.DATE_DEBUT_ORD - 1]) : '',
     dateFinOrd:     r[CONFIG.COL.DATE_FIN_ORD   - 1] ? formatDate(r[CONFIG.COL.DATE_FIN_ORD   - 1]) : '',
     emailSuperieur: r[CONFIG.COL.EMAIL_SUP      - 1] || '',
-    avisSuperieur:  r[CONFIG.COL.AVIS_SUP      - 1] || '',
-    avisRH:         r[CONFIG.COL.AVIS_RH       - 1] || '',
-    avisPres:       r[CONFIG.COL.AVIS_PRES     - 1] || '',
-    commentaire:    r[CONFIG.COL.COMMENTAIRE   - 1] || '',
-    tokenSup:       r[CONFIG.COL.TOKEN_SUP     - 1] || '',
-    tokenRH:        r[CONFIG.COL.TOKEN_RH      - 1] || '',
-    tokenPres:      r[CONFIG.COL.TOKEN_PRES    - 1] || '',
-    statutGlobal:   r[CONFIG.COL.STATUT_GLOBAL - 1] || '',
-    dateCloture:    r[CONFIG.COL.DATE_CLOTURE  - 1] || null,
-    driveDossierID: r[CONFIG.COL.DRIVE_DOSSIER - 1] || '',
-    driveDocID:     r[CONFIG.COL.DRIVE_DOC     - 1] || '',
-    // nomOrg calcule une seule fois — evite les re-lookups dans Notifications
+    avisSuperieur:  r[CONFIG.COL.AVIS_SUP       - 1] || '',
+    avisPres:       r[CONFIG.COL.AVIS_PRES      - 1] || '',
+    commentaire:    r[CONFIG.COL.COMMENTAIRE    - 1] || '',
+    tokenSup:       r[CONFIG.COL.TOKEN_SUP      - 1] || '',
+    tokenPres:      r[CONFIG.COL.TOKEN_PRES     - 1] || '',
+    statutGlobal:   r[CONFIG.COL.STATUT_GLOBAL  - 1] || '',
+    dateCloture:    r[CONFIG.COL.DATE_CLOTURE   - 1] || null,
+    driveDossierID: r[CONFIG.COL.DRIVE_DOSSIER  - 1] || '',
+    driveDocID:     r[CONFIG.COL.DRIVE_DOC      - 1] || '',
     nomOrg: ((CONFIG.SERVICE_SUP_MAP || {})[(r[CONFIG.COL.SERVICE - 1] || '').toString().trim()] || {}).nomOrg || CONFIG.NOM_ORG
   };
 }
 
 function trouverLigneParToken(token) {
+  return trouverLigneParTokenOptimise(token);
+}
+
+function trouverLigneParTokenOptimise(token) {
   if (!token) return null;
 
   const sheet   = getSheetReponses();
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return null;
 
-  const colonnes = [
+  const niveaux = [
     { col: CONFIG.COL.TOKEN_SUP,  niveau: 'Superieur'  },
-    { col: CONFIG.COL.TOKEN_RH,   niveau: 'RH'         },
     { col: CONFIG.COL.TOKEN_PRES, niveau: 'Presidence' }
   ];
 
-  const data = sheet.getRange(2, CONFIG.COL.TOKEN_SUP, lastRow - 1, 3).getValues();
-
-  for (let i = 0; i < data.length; i++) {
-    for (let j = 0; j < 3; j++) {
-      let valCell  = (data[i][j] || '').toString();
+  for (const { col, niveau } of niveaux) {
+    const vals = sheet.getRange(2, col, lastRow - 1, 1).getValues();
+    for (let i = 0; i < vals.length; i++) {
+      let valCell   = (vals[i][0] || '').toString();
       let tokenBrut = valCell;
       if (tokenBrut.startsWith('UTILISE_'))  tokenBrut = tokenBrut.slice(8);
       if (tokenBrut.startsWith('INVALIDE_')) tokenBrut = tokenBrut.slice(9);
-
       if (tokenBrut === token) {
-        return {
-          row:     i + 2,
-          niveau:  colonnes[j].niveau,
-          utilise: valCell !== token
-        };
+        return { row: i + 2, niveau, utilise: valCell !== token };
       }
     }
   }
@@ -136,18 +128,19 @@ function getNomSuperieur(email) {
 
 /**
  * Retourne la Présidence compétente pour un superviseur donné.
- * Cherche dans CONFIG.PRESIDENCE_MAP ; si absent, retourne la Présidence par défaut.
- *
- * @param {string} emailSup - Email du superviseur de l'employé
- * @returns {{ email: string, nom: string }}
+ * Retourne un objet { emails: [], noms: [] }.
  */
 function getPresidencePourSup(emailSup, nomOrg) {
   const map = CONFIG.PRESIDENCE_MAP || {};
-  // 1. Override spécifique par email du superviseur
-  if (emailSup && map[emailSup] && map[emailSup].email) return map[emailSup];
-  // 2. Fallback par organisation (pour les services sans supérieur)
-  if (nomOrg && map[nomOrg] && map[nomOrg].email) return map[nomOrg];
-  return { email: CONFIG.EMAIL_PRESIDENCE, nom: CONFIG.NOM_PRESIDENCE };
+  // 1. Override par email du superviseur
+  if (emailSup && map[emailSup] && map[emailSup].emails) return map[emailSup];
+  // 2. Fallback par organisation
+  if (nomOrg && map[nomOrg] && map[nomOrg].emails) return map[nomOrg];
+  // 3. Défaut global
+  return {
+    emails: CONFIG.EMAILS_PRESIDENCE || [],
+    noms:   CONFIG.NOMS_PRESIDENCE   || []
+  };
 }
 
 function formatDateHeure(date) {
@@ -184,8 +177,6 @@ function ecrireColonne(sheet, row, colIndex, valeur) {
   sheet.getRange(row, colIndex).setValue(valeur);
 }
 
-// Écrit un ID dans une cellule en le rendant cliquable (lien vers Drive/Doc).
-// getValue() retourne toujours l'ID brut — lireDemande() fonctionne sans modification.
 function ecrireColonneLien(sheet, row, colIndex, id, url) {
   const richText = SpreadsheetApp.newRichTextValue()
     .setText(id)
@@ -200,14 +191,6 @@ function heuresAvant(dateDebut) {
 
 /**
  * Compte le nombre de jours ouvrables entre maintenant et dateDebut.
- * Exclut : samedis (6), dimanches (0) et les dates listées dans CONFIG.JOURS_FERIES.
- *
- * Exemple :
- *   Soumission mercredi → début lundi suivant = 3 jours ouvrables (jeu + ven + lun)
- *   Soumission vendredi → début lundi          = 1 jour ouvrable   (lundi seulement)
- *
- * @param {Date|string} dateDebut - Date de début de l'absence
- * @returns {number} Nombre de jours ouvrables jusqu'au début
  */
 function joursOuvrables(dateDebut) {
   const maintenant = new Date();
@@ -218,13 +201,12 @@ function joursOuvrables(dateDebut) {
   const feriesSet = new Set(CONFIG.JOURS_FERIES || []);
   let jours = 0;
 
-  // Curseur positionné au lendemain de maintenant (le jour actuel ne compte pas)
   const cursor = new Date(maintenant);
   cursor.setDate(cursor.getDate() + 1);
   cursor.setHours(0, 0, 0, 0);
 
   while (cursor <= fin) {
-    const jour    = cursor.getDay(); // 0=Dim, 1=Lun … 6=Sam
+    const jour    = cursor.getDay();
     const dateStr = Utilities.formatDate(cursor, 'Africa/Dakar', 'yyyy-MM-dd');
 
     if (jour !== 0 && jour !== 6 && !feriesSet.has(dateStr)) {
@@ -237,15 +219,11 @@ function joursOuvrables(dateDebut) {
   return jours;
 }
 
-// Calcule la durée entre dateDebutRaw+heureDebutRaw et dateFinRaw+heureFinRaw.
-// Même jour   → "4h", "2h30", "9h"
-// Jours diff  → "1 jour", "2 jours", "20 jours"
 function calculerDuree(demande) {
   if (!demande.dateDebutRaw || !demande.dateFinRaw) {
     return demande.nbJours ? `${demande.nbJours} jour(s)` : 'N/A';
   }
 
-  // Extraire l'heure d'un objet Date (ou valeur time GAS)
   function extractTime(raw) {
     const d = new Date(raw);
     return { h: isNaN(d) ? 0 : d.getHours(), m: isNaN(d) ? 0 : d.getMinutes() };
@@ -255,18 +233,15 @@ function calculerDuree(demande) {
   const fin   = new Date(demande.dateFinRaw);
   if (isNaN(debut) || isNaN(fin)) return 'N/A';
 
-  // Comparer uniquement les dates calendaires
   const dDebut = new Date(debut.getFullYear(), debut.getMonth(), debut.getDate());
   const dFin   = new Date(fin.getFullYear(),   fin.getMonth(),   fin.getDate());
   const diffJours = Math.round((dFin - dDebut) / 86400000);
 
   if (diffJours < 0) {
-    // Dates inversées dans le formulaire — fallback sur nbJours si disponible
     return demande.nbJours ? `${demande.nbJours} jour(s)` : 'N/A';
   }
 
   if (diffJours === 0) {
-    // Même jour → durée en heures/minutes
     const t1 = demande.heureDebutRaw ? extractTime(demande.heureDebutRaw) : { h: 0, m: 0 };
     const t2 = demande.heureFinRaw   ? extractTime(demande.heureFinRaw)   : { h: 0, m: 0 };
     const diffMin = (t2.h * 60 + t2.m) - (t1.h * 60 + t1.m);
@@ -275,7 +250,6 @@ function calculerDuree(demande) {
     const m = diffMin % 60;
     return m === 0 ? `${h}h` : `${h}h${String(m).padStart(2, '0')}`;
   } else {
-    // Plusieurs jours → compter les jours inclusifs (du 23 au 24 = 2 jours)
     const jours = diffJours + 1;
     return `${jours} jour${jours > 1 ? 's' : ''}`;
   }

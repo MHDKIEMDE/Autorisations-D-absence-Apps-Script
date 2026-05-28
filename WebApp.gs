@@ -49,7 +49,6 @@ function doGet(e) {
 
   const colStatut = {
     'Superieur':  CONFIG.COL.AVIS_SUP,
-    'RH':         CONFIG.COL.AVIS_RH,
     'Presidence': CONFIG.COL.AVIS_PRES
   }[found.niveau];
 
@@ -112,7 +111,6 @@ function pageFormulaire(demande, token, niveau, nomOrg) {
   const org = nomOrg || CONFIG.NOM_ORG;
   const labelNiveau = {
     'Superieur':  'Supérieur hiérarchique',
-    'RH':         'Responsable RH',
     'Presidence': 'Présidence'
   }[niveau];
 
@@ -131,7 +129,6 @@ function pageFormulaire(demande, token, niveau, nomOrg) {
         <span class="badge-att">En attente de votre décision</span>
         <div class="info-row"><span class="lbl">Référence</span>          <span class="val"><strong>${demande.idDemande}</strong></span></div>
         <div class="info-row"><span class="lbl">Employé</span>            <span class="val">${demande.prenom} ${demande.nom}</span></div>
-        <div class="info-row"><span class="lbl">Matricule</span>          <span class="val">${demande.matricule || '—'}</span></div>
         <div class="info-row"><span class="lbl">Service / Poste</span>    <span class="val">${demande.service || '—'}</span></div>
         <div class="info-row"><span class="lbl">Type de permission</span> <span class="val">${demande.typePerm}</span></div>
         <div class="info-row"><span class="lbl">Motif / Absence</span>    <span class="val">${motif}</span></div>
@@ -182,7 +179,7 @@ function pageDejaUtilise(res, nomOrg, theme) {
       <div class="ico">📩</div>
       <div class="result-titre" style="color:${acc}">Réponse déjà envoyée</div>
       <p class="result-msg">${res.message}</p>
-      <p class="note-bas">Si vous pensez qu'il s'agit d'une erreur, contactez le service RH.</p>
+      <p class="note-bas">Si vous pensez qu'il s'agit d'une erreur, contactez la direction.</p>
     </div>
     <div class="footer-page">${org} — Système automatisé de gestion des absences</div>`;
 }
@@ -231,8 +228,7 @@ function pageAccueil() {
         </a>
       </div>
       <p class="note-bas" style="margin-top:20px">
-        Pour toute question, contactez le service RH :<br>
-        <a href="mailto:${CONFIG.EMAIL_RH}" style="color:#016579">${CONFIG.EMAIL_RH}</a>
+        Pour toute question, contactez la direction.
       </p>
     </div>
     <div class="footer-page">${CONFIG.NOM_ORG} — Système automatisé de gestion des absences</div>

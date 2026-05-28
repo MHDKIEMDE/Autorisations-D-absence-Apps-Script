@@ -1,83 +1,57 @@
 // ============================================================
 // Notifications.gs — Emails HTML
-// Systeme d'autorisation d'absence — Massaka
-// ============================================================
-// Toute la configuration email est dans Config.gs (CONFIG).
+// Système d'autorisation d'absence — Massaka SAS
 // ============================================================
 
-// Themes definis dans Config.gs → CONFIG.THEMES_ORG
-
-// Retourne le theme a partir du nomOrg du demandeur.
-// nomOrg est calcule une seule fois dans lireDemande (via SERVICE_SUP_MAP).
-// Priorite : PRESIDENCE_MAP[emailSup] > PRESIDENCE_MAP par nomOrg > THEMES_ORG
 function getThemeEmail(nomOrg, emailSup) {
   const map = CONFIG.PRESIDENCE_MAP || {};
 
-  // 1. Lookup par email du superviseur (clé directe dans PRESIDENCE_MAP)
+  // 1. Lookup par email du superviseur
   const presBySup = emailSup ? map[emailSup] : null;
   if (presBySup && presBySup.couleur) {
-    return {
-      couleur:            presBySup.couleur,
-      couleurBadge:       presBySup.couleurBadge       || '#f8c542',
-      couleurTexteBadge:  presBySup.couleurTexteBadge  || '#333333',
-      couleurAccent:      presBySup.couleurAccent      || presBySup.couleur,
-      couleurTexte:       presBySup.couleurTexte       || '#ffffff',
-      couleurFondMotif:    presBySup.couleurFondMotif    || '#f0f9fc',
-      couleurFondDuree:    presBySup.couleurFondDuree    || '#fff8e6',
-      couleurLabelDuree:   presBySup.couleurLabelDuree   || '#856404',
-      couleurBoutonRejet:          presBySup.couleurBoutonRejet          || '#dc3545',
-      couleurBoutonApprouver:      presBySup.couleurBoutonApprouver      || presBySup.couleurAccent || presBySup.couleur,
-      couleurTexteBoutonApprouver: presBySup.couleurTexteBoutonApprouver || presBySup.couleurTexte  || '#ffffff',
-      couleurFondTableau:        presBySup.couleurFondTableau        || '#f0f9fc',
-      couleurTexteTableau:       presBySup.couleurTexteTableau       || '#555555',
-      couleurLabelOption1:       presBySup.couleurLabelOption1       || presBySup.couleurAccent || presBySup.couleur,
-      couleurBoutonTableau:      presBySup.couleurBoutonTableau      || presBySup.couleurAccent || presBySup.couleur,
-      couleurTexteBoutonTableau: presBySup.couleurTexteBoutonTableau || presBySup.couleurTexte  || '#ffffff',
-      police:                    presBySup.police                    || "'Montserrat', 'Segoe UI', Arial, sans-serif",
-      nomOrg:             presBySup.nomOrg             || nomOrg || CONFIG.NOM_ORG
-    };
+    return _buildTheme(presBySup, nomOrg);
   }
 
-  // 2. Lookup par nomOrg dans les valeurs de PRESIDENCE_MAP
-  //    Permet d'appliquer le bon theme meme quand la cle est l'email du president
-  //    (et non l'email du superviseur) — cas RH, Presidence, relances, etc.
+  // 2. Lookup par nomOrg
   const org = nomOrg || CONFIG.NOM_ORG;
   const presByOrg = Object.values(map).find(p => p.nomOrg === org);
   if (presByOrg && presByOrg.couleur) {
-    return {
-      couleur:            presByOrg.couleur,
-      couleurBadge:       presByOrg.couleurBadge       || '#f8c542',
-      couleurTexteBadge:  presByOrg.couleurTexteBadge  || '#333333',
-      couleurAccent:      presByOrg.couleurAccent      || presByOrg.couleur,
-      couleurTexte:       presByOrg.couleurTexte       || '#ffffff',
-      couleurFondMotif:    presByOrg.couleurFondMotif    || '#f0f9fc',
-      couleurFondDuree:    presByOrg.couleurFondDuree    || '#fff8e6',
-      couleurLabelDuree:   presByOrg.couleurLabelDuree   || '#856404',
-      couleurBoutonRejet:          presByOrg.couleurBoutonRejet          || '#dc3545',
-      couleurBoutonApprouver:      presByOrg.couleurBoutonApprouver      || presByOrg.couleurAccent || presByOrg.couleur,
-      couleurTexteBoutonApprouver: presByOrg.couleurTexteBoutonApprouver || presByOrg.couleurTexte  || '#ffffff',
-      couleurFondTableau:        presByOrg.couleurFondTableau        || '#f0f9fc',
-      couleurTexteTableau:       presByOrg.couleurTexteTableau       || '#555555',
-      couleurLabelOption1:       presByOrg.couleurLabelOption1       || presByOrg.couleurAccent || presByOrg.couleur,
-      couleurBoutonTableau:      presByOrg.couleurBoutonTableau      || presByOrg.couleurAccent || presByOrg.couleur,
-      couleurTexteBoutonTableau: presByOrg.couleurTexteBoutonTableau || presByOrg.couleurTexte  || '#ffffff',
-      police:                    presByOrg.police                    || "'Montserrat', 'Segoe UI', Arial, sans-serif",
-      nomOrg:              org
-    };
+    return _buildTheme(presByOrg, org);
   }
 
-  // 3. Aucune entree trouvee — retourne les valeurs par defaut
   return { nomOrg: org };
 }
 
-// CSS partage injecte dans tous les emails HTML
+function _buildTheme(p, nomOrg) {
+  return {
+    couleur:                     p.couleur,
+    couleurBadge:                p.couleurBadge                || '#f8c542',
+    couleurTexteBadge:           p.couleurTexteBadge           || '#333333',
+    couleurAccent:               p.couleurAccent               || p.couleur,
+    couleurTexte:                p.couleurTexte                || '#ffffff',
+    couleurFondMotif:            p.couleurFondMotif            || '#f0f9fc',
+    couleurFondDuree:            p.couleurFondDuree            || '#fff8e6',
+    couleurLabelDuree:           p.couleurLabelDuree           || '#856404',
+    couleurBoutonRejet:          p.couleurBoutonRejet          || '#dc3545',
+    couleurBoutonApprouver:      p.couleurBoutonApprouver      || p.couleurAccent || p.couleur,
+    couleurTexteBoutonApprouver: p.couleurTexteBoutonApprouver || p.couleurTexte  || '#ffffff',
+    couleurFondTableau:          p.couleurFondTableau          || '#f0f9fc',
+    couleurTexteTableau:         p.couleurTexteTableau         || '#555555',
+    couleurLabelOption1:         p.couleurLabelOption1         || p.couleurAccent || p.couleur,
+    couleurBoutonTableau:        p.couleurBoutonTableau        || p.couleurAccent || p.couleur,
+    couleurTexteBoutonTableau:   p.couleurTexteBoutonTableau   || p.couleurTexte  || '#ffffff',
+    police:                      p.police                      || "'Montserrat', 'Segoe UI', Arial, sans-serif",
+    nomOrg:                      p.nomOrg || nomOrg || CONFIG.NOM_ORG
+  };
+}
+
 function cssEmail(theme) {
-  const c   = theme.couleur;                        // fond entête
-  const ca  = theme.couleurAccent;                  // boutons Approuver, titres section
-  const cb  = theme.couleurBadge;                   // fond badge
-  const ctb = theme.couleurTexteBadge || '#333333'; // texte badge
-  const ct  = theme.couleurTexte;                   // texte entête
-  const cr  = theme.couleurBoutonRejet || '#dc3545'; // bouton Rejeter
+  const c   = theme.couleur;
+  const ca  = theme.couleurAccent;
+  const cb  = theme.couleurBadge;
+  const ctb = theme.couleurTexteBadge || '#333333';
+  const ct  = theme.couleurTexte;
+  const cr  = theme.couleurBoutonRejet || '#dc3545';
   const p   = theme.police;
   return `
     <style>
@@ -125,7 +99,6 @@ function cssEmail(theme) {
   `;
 }
 
-// Bloc HTML recapitulatif — adapté selon le type de permission et le theme
 function blocRecapitulatif(demande, theme) {
   const c   = theme ? theme.couleurAccent    : '#016579';
   const cfm = theme ? theme.couleurFondMotif : '#f0f9fc';
@@ -181,18 +154,16 @@ function blocRecapitulatif(demande, theme) {
 
 
 // ============================================================
-// 1. Accuse de reception a l'employe
+// 1. Accusé de réception à l'employé
 // ============================================================
 function envoyerAccuseReceptionEmploye(demande) {
   const nomOrg   = demande.nomOrg || CONFIG.NOM_ORG;
   const theme    = getThemeEmail(nomOrg, demande.emailSuperieur);
-  const workflow = ((CONFIG.SERVICE_SUP_MAP || {})[demande.service] || {}).workflow || 'SUP_RH_PRES';
+  const workflow = ((CONFIG.SERVICE_SUP_MAP || {})[demande.service] || {}).workflow || 'PRES';
 
   const texteEtapes = {
-    'SUP_RH_PRES': 'Votre demande sera examinée successivement par votre supérieur hiérarchique, le service RH, puis la présidence.',
-    'RH_PRES':     'Votre demande sera examinée par le service RH, puis validée par la présidence.',
-    'PRES':        'Votre demande sera examinée directement par la présidence.',
-    'PRES_RH':     'Votre demande sera examinée en premier par la présidence, puis validée définitivement par le service RH.'
+    'SUP_PRES': 'Votre demande sera examinée successivement par votre supérieur hiérarchique, puis par la présidence.',
+    'PRES':     'Votre demande sera examinée directement par la présidence.'
   }[workflow] || 'Votre demande est en cours de traitement.';
 
   const htmlBody = `
@@ -227,7 +198,7 @@ function envoyerAccuseReceptionEmploye(demande) {
         </table>
         <p class="note">
           Référence : <strong>${demande.idDemande}</strong><br>
-          Pour toute question, contactez le service RH.
+          Pour toute question, contactez la direction.
         </p>
       </div>
       <div class="footer">${nomOrg} — Système automatisé de gestion des absences</div>
@@ -238,16 +209,16 @@ function envoyerAccuseReceptionEmploye(demande) {
     demande.emailEmploye,
     `${nomOrg} – Demande reçue – ${demande.idDemande}`,
     '',
-    { htmlBody: htmlBody, name: nomOrg + ' RH' }
+    { htmlBody: htmlBody, name: nomOrg }
   );
 
-  log('OK', 'Notifications', `Accuse reception → ${demande.emailEmploye} | org=${nomOrg} | service=${demande.service} | ref=${demande.idDemande}`);
+  log('OK', 'Notifications', `Accusé réception → ${demande.emailEmploye} | org=${nomOrg} | ref=${demande.idDemande}`);
 }
 
 
 // ============================================================
-// 2. Notification au validateur (superieur / RH / Presidence)
-//    Config emails directement dans Config.gs — plus besoin du sheet.
+// 2. Notification au validateur (Supérieur ou Présidence)
+//    Pour la Présidence : envoie aux 2 emails avec le même token
 // ============================================================
 function envoyerNotificationValidateur(demande, niveau, token, estRelance) {
 
@@ -259,19 +230,18 @@ function envoyerNotificationValidateur(demande, niveau, token, estRelance) {
     const nomSup = getNomSuperieur(demande.emailSuperieur);
     destinations.push({ to: demande.emailSuperieur, nom: nomSup });
 
-  } else if (niveau === 'RH') {
-    labelNiveau = 'Responsable RH';
-    destinations.push({ to: CONFIG.EMAIL_RH, nom: CONFIG.NOM_RH });
-
   } else if (niveau === 'Presidence') {
     labelNiveau = 'Présidence';
-    const pres = getPresidencePourSup(demande.emailSuperieur, demande.nomOrg);
-    destinations.push({ to: pres.email, nom: pres.nom });
+    const pres   = getPresidencePourSup(demande.emailSuperieur, demande.nomOrg);
+    const emails = pres.emails || [];
+    const noms   = pres.noms   || [];
+    emails.forEach((email, i) => {
+      if (email) destinations.push({ to: email, nom: noms[i] || email });
+    });
   }
 
   const nomOrg = demande.nomOrg || CONFIG.NOM_ORG;
   const theme  = getThemeEmail(nomOrg, demande.emailSuperieur);
-  log('DEBUG', 'Notifications', `envoyerNotificationValidateur niveau=${niveau} | nomOrg="${nomOrg}" | emailSup="${demande.emailSuperieur}" | theme.couleur="${theme.couleur}" | theme.couleurBadge="${theme.couleurBadge}"`);
   const lienApprouver = `${CONFIG.WEBAPP_URL}?token=${token}&action=APPROUVE`;
   const lienRejeter   = `${CONFIG.WEBAPP_URL}?token=${token}`;
 
@@ -283,7 +253,7 @@ function envoyerNotificationValidateur(demande, niveau, token, estRelance) {
 
   destinations.forEach(({ to, nom }) => {
     if (!to) {
-      log('WARN', 'Notifications', `Email manquant pour niveau ${niveau} — verifie Config.gs`);
+      log('WARN', 'Notifications', `Email manquant pour niveau ${niveau} — vérifiez Config.gs`);
       return;
     }
 
@@ -307,7 +277,6 @@ function envoyerNotificationValidateur(demande, niveau, token, estRelance) {
           ${blocRecapitulatif(demande, theme)}
           <div class="section-title">Votre décision</div>
 
-          <!-- Option 1 : Validation directe dans le tableau (recommandée) -->
           <div style="background:${theme.couleurFondTableau || '#f0f9fc'};border:2px solid ${theme.couleurAccent};border-radius:10px;padding:20px;margin-bottom:16px">
             <div style="font-size:13px;font-weight:800;color:${theme.couleurLabelOption1 || theme.couleurAccent};text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px">
               ✏️ Option 1 — Directement dans le tableau (recommandé)
@@ -323,12 +292,11 @@ function envoyerNotificationValidateur(demande, niveau, token, estRelance) {
               </tr>
             </table>
             <p style="font-size:13px;color:${theme.couleurTexteTableau || '#555555'};margin-top:12px;line-height:1.6">
-              Trouvez la ligne <strong>${demande.idDemande}</strong>, saisissez votre motif en colonne U si vous rejetez,
+              Trouvez la ligne <strong>${demande.idDemande}</strong>, saisissez votre motif en colonne S si vous rejetez,
               puis choisissez <strong>Approuvé</strong> ou <strong>Rejeté</strong> dans la colonne qui vous correspond.
             </p>
           </div>
 
-          <!-- Option 2 : Liens rapides par email -->
           <div style="background:#f9f9f9;border:1px solid #e0e0e0;border-radius:8px;padding:16px">
             <div style="font-size:12px;font-weight:700;color:#666666;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">
               Option 2 — Liens rapides (usage unique)
@@ -354,7 +322,7 @@ function envoyerNotificationValidateur(demande, niveau, token, estRelance) {
               </tr>
             </table>
             <p style="font-size:12px;color:#999999;margin-top:10px;line-height:1.5">
-              Ces liens sont à usage unique. Pour rejeter, un motif sera demandé.
+              Ces liens sont à usage unique. Le premier validateur qui clique clôture la décision.
             </p>
           </div>
           <p class="note">
@@ -368,19 +336,18 @@ function envoyerNotificationValidateur(demande, niveau, token, estRelance) {
 
     GmailApp.sendEmail(
       to,
-      `${estRelance ? 'Relance – ' : ''}${nomOrg} – A valider – ${demande.idDemande} – ${demande.prenom} ${demande.nom}`,
+      `${estRelance ? 'Relance – ' : ''}${nomOrg} – À valider – ${demande.idDemande} – ${demande.prenom} ${demande.nom}`,
       '',
-      { htmlBody: htmlBody, name: nomOrg + ' RH' }
+      { htmlBody: htmlBody, name: nomOrg }
     );
 
-    log('OK', 'Notifications', `Validateur notifie → ${to} | niveau=${niveau} | org=${nomOrg} | ref=${demande.idDemande}`);
+    log('OK', 'Notifications', `Validateur notifié → ${to} | niveau=${niveau} | org=${nomOrg} | ref=${demande.idDemande}`);
   });
 }
 
 
 // ============================================================
-// 3. Confirmation finale a l'employe
-//    Uniquement en cas de rejet (tout niveau) ou approbation Presidence.
+// 3. Confirmation finale à l'employé
 // ============================================================
 function envoyerConfirmationFinaleEmploye(demande, decision, motif) {
   const nomOrg      = demande.nomOrg || CONFIG.NOM_ORG;
@@ -388,8 +355,8 @@ function envoyerConfirmationFinaleEmploye(demande, decision, motif) {
   const estApprouve = decision === 'Approuve' || decision === 'Approuvé';
 
   const sujet = estApprouve
-    ? `${nomOrg} – Absence approuvee – ${demande.idDemande}`
-    : `${nomOrg} – Absence refusee – ${demande.idDemande}`;
+    ? `${nomOrg} – Absence approuvée – ${demande.idDemande}`
+    : `${nomOrg} – Absence refusée – ${demande.idDemande}`;
 
   const iconResultat  = estApprouve ? '✅' : '❌';
   const texteResultat = estApprouve ? 'Votre demande a été approuvée' : 'Votre demande a été refusée';
@@ -405,7 +372,7 @@ function envoyerConfirmationFinaleEmploye(demande, decision, motif) {
     <div style="background:${theme.couleurFondMotif || '#f0f9fc'};border-left:4px solid ${theme.couleurAccent || '#016579'};border-radius:6px;padding:14px 16px;margin-top:8px">
       <div style="font-size:13px;font-weight:700;color:${theme.couleurAccent || '#016579'};text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">📎 Pièce jointe</div>
       <p style="font-size:14px;color:#333333;line-height:1.6;margin:0">
-        Votre autorisation d'absence signée est jointe en pièce jointe (PDF).<br>
+        Votre autorisation d'absence est jointe en pièce jointe (PDF).<br>
         Conservez-la comme justificatif officiel.
       </p>
     </div>
@@ -417,7 +384,7 @@ function envoyerConfirmationFinaleEmploye(demande, decision, motif) {
       <div class="header">
         <div class="logo">⬡ ${nomOrg}</div>
         <div class="sous-titre">Système de gestion des absences</div>
-        <div class="badge">${estApprouve ? 'Decision finale — Approuve' : 'Decision finale — Refuse'}</div>
+        <div class="badge">${estApprouve ? 'Décision finale — Approuvé' : 'Décision finale — Refusé'}</div>
       </div>
       <div class="body">
         <p style="font-size:15px;margin-bottom:4px">
@@ -431,8 +398,8 @@ function envoyerConfirmationFinaleEmploye(demande, decision, motif) {
         ${blocDoc}
         <p class="note">
           ${estApprouve
-            ? 'Conservez ce document comme justificatif. Pour toute question, contactez le service RH.'
-            : 'Pour contester cette decision, contactez le service RH en mentionnant la reference.'
+            ? 'Conservez ce document comme justificatif. Pour toute question, contactez la direction.'
+            : 'Pour contester cette décision, contactez la direction en mentionnant la référence.'
           }<br>
           Référence : <strong>${demande.idDemande}</strong>
         </p>
@@ -441,7 +408,7 @@ function envoyerConfirmationFinaleEmploye(demande, decision, motif) {
     </div></body></html>
   `;
 
-  const options = { htmlBody: htmlBody, name: nomOrg + ' RH' };
+  const options = { htmlBody: htmlBody, name: nomOrg };
 
   if (estApprouve && demande.driveDocID) {
     try {
@@ -455,103 +422,5 @@ function envoyerConfirmationFinaleEmploye(demande, decision, motif) {
   }
 
   GmailApp.sendEmail(demande.emailEmploye, sujet, '', options);
-
   log('OK', 'Notifications', `Confirmation finale → ${demande.emailEmploye} | decision=${decision} | org=${nomOrg} | ref=${demande.idDemande}`);
-}
-
-
-// ============================================================
-// 4. Notification finale à la RH — toute décision de clôture
-//    Appelée après envoyerConfirmationFinaleEmploye.
-//    NON appelée quand la RH est elle-même le validateur final
-//    (circuit PRES_RH, niveau RH) pour éviter un email redondant.
-//
-//    Rejet  → résumé de la demande + motif de refus
-//    Approuvé → résumé + lien PDF du document officiel
-// ============================================================
-function envoyerNotificationFinaleRH(demande, decision, motif) {
-  const emailRH = CONFIG.EMAIL_RH;
-  const nomRH   = CONFIG.NOM_RH;
-  if (!emailRH) {
-    log('WARN', 'Notifications', `envoyerNotificationFinaleRH : EMAIL_RH non défini dans Config.gs`);
-    return;
-  }
-
-  const nomOrg      = demande.nomOrg || CONFIG.NOM_ORG;
-  const theme       = getThemeEmail(nomOrg, demande.emailSuperieur);
-  const estApprouve = decision === 'Approuvé' || decision === 'Approuve';
-
-  const sujet = estApprouve
-    ? `${nomOrg} – Demande approuvée – ${demande.idDemande} – ${demande.prenom} ${demande.nom}`
-    : `${nomOrg} – Demande rejetée – ${demande.idDemande} – ${demande.prenom} ${demande.nom}`;
-
-  const iconResultat  = estApprouve ? '✅' : '❌';
-  const classeResultat = estApprouve ? 'result-ok' : 'result-ko';
-  const texteResultat  = estApprouve ? 'Approuvée' : 'Rejetée';
-
-  const cr = theme.couleurBoutonRejet || '#dc3545';
-  const ca = theme.couleurAccent      || '#016579';
-  const ct = theme.couleurTexte       || '#ffffff';
-
-  const blocMotif = (!estApprouve && motif) ? `
-    <div class="motif-box">
-      <strong>Motif du refus :</strong><br>${motif}
-    </div>
-  ` : '';
-
-  const blocDoc = (estApprouve && demande.driveDocID) ? `
-    <div class="section-title">Document officiel</div>
-    <p style="font-size:14px;color:#555555;line-height:1.6;margin-top:8px">
-      Le document d'autorisation d'absence est joint en pièce jointe (PDF).
-    </p>
-  ` : '';
-
-  const htmlBody = `
-    <!DOCTYPE html><html><head><meta charset="UTF-8">${cssEmail(theme)}</head>
-    <body><div class="wrap">
-      <div class="header">
-        <div class="logo">⬡ ${nomOrg}</div>
-        <div class="sous-titre">Système de gestion des absences</div>
-        <div class="badge">${estApprouve ? 'Décision finale — Approuvé' : 'Décision finale — Rejeté'}</div>
-      </div>
-      <div class="body">
-        <p style="font-size:15px;margin-bottom:4px">
-          Bonjour <strong>${nomRH}</strong>,
-        </p>
-        <p style="font-size:14px;color:#555555;margin-top:8px;line-height:1.6">
-          La demande de <strong>${demande.prenom} ${demande.nom}</strong> a été traitée.
-          Voici le récapitulatif pour votre information.
-        </p>
-        <div style="padding:12px 0 4px">
-          <div style="font-size:22px;font-weight:800;margin-bottom:4px">
-            ${iconResultat} <span class="${classeResultat}">${texteResultat}</span>
-          </div>
-        </div>
-        ${blocMotif}
-        ${blocRecapitulatif(demande, theme)}
-        ${blocDoc}
-        <p class="note">
-          Référence : <strong>${demande.idDemande}</strong><br>
-          Ce message est un récapitulatif automatique à titre informatif.
-        </p>
-      </div>
-      <div class="footer">${nomOrg} — Système automatisé de gestion des absences</div>
-    </div></body></html>
-  `;
-
-  const options = { htmlBody: htmlBody, name: nomOrg + ' Système' };
-
-  if (estApprouve && demande.driveDocID) {
-    try {
-      const pdf = DriveApp.getFileById(demande.driveDocID)
-        .getAs('application/pdf');
-      pdf.setName(`${demande.idDemande} - ${demande.nomComplet}.pdf`);
-      options.attachments = [pdf];
-    } catch (e) {
-      log('WARN', 'Notifications', `RH — impossible de joindre le PDF pour ${demande.idDemande} : ${e}`);
-    }
-  }
-
-  GmailApp.sendEmail(emailRH, sujet, '', options);
-  log('OK', 'Notifications', `Notification finale RH → ${emailRH} | decision=${decision} | org=${nomOrg} | ref=${demande.idDemande}`);
 }
