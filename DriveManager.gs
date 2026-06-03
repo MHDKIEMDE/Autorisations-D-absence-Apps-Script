@@ -93,22 +93,17 @@ function remplirTemplate(docId, demande) {
     '{{ID_DEMANDE}}':      demande.idDemande        || '',
     '{{NOM}}':             demande.nom               || '',
     '{{PRENOM}}':          demande.prenom            || '',
-    '{{SERVICE}}':         demande.service           || '',
-    '{{TYPE_PERMISSION}}': demande.typePerm          || '',
-    '{{TYPE_ABSENCE}}':    demande.typeAbsence  || demande.motifLong  || '',
+    '{{SERVICE}}':         demande.departement       || '',
+    '{{TYPE_ABSENCE}}':    demande.typeAbsence       || '',
+    '{{MOTIF_EXCEPTIONNEL}}': demande.famille
+                               ? (demande.famille === 'Autre' ? demande.motif : demande.famille)
+                               : (demande.typeAbsence === 'Autre' ? demande.motif : demande.typeAbsence),
     '{{DATE_DEBUT}}':      demande.dateDebut         || '',
     '{{HEURE_DEBUT}}':     demande.heureDebut        || '',
     '{{DATE_FIN}}':        demande.dateFin           || '',
     '{{HEURE_FIN}}':       demande.heureFin          || '',
-    '{{NB_JOURS}}':           demande.nbJours        ? String(demande.nbJours) : '',
-    '{{NB_JOURS_ORDINAIRE}}':    demande.nbJours   ? String(demande.nbJours) : '',
     '{{NB_JOURS_EXCEPTIONNEL}}': calculerDuree(demande),
-    '{{MOTIF}}':              demande.motifLong   || demande.typeAbsence || '',
-    '{{MOTIF_EXCEPTIONNEL}}': demande.typeAbsence || '',
-    '{{MOTIF_ORDINAIRE}}':    demande.motifLong   || '',
-    '{{DATE_DEBUT_ORDINAIRE}}': demande.dateDebutOrd || '',
-    '{{DATE_FIN_ORDINAIRE}}':   demande.dateFinOrd   || '',
-    '{{DATE_SOUMISSION}}':    formatDateHeure(new Date())
+    '{{DATE_SOUMISSION}}': formatDateHeure(new Date())
   };
 
   Object.entries(remplacements).forEach(([balise, valeur]) => {

@@ -114,7 +114,9 @@ function pageFormulaire(demande, token, niveau, nomOrg) {
     'Presidence': 'Présidence'
   }[niveau];
 
-  const motif = demande.typeAbsence || demande.motifLong || '—';
+  const motif = demande.famille
+    ? (demande.famille === 'Autre' ? `Famille — ${demande.motif || '—'}` : demande.famille)
+    : (demande.typeAbsence === 'Autre' ? demande.motif || '—' : demande.typeAbsence || '—');
   const duree = calculerDuree(demande);
 
   return `
@@ -129,8 +131,7 @@ function pageFormulaire(demande, token, niveau, nomOrg) {
         <span class="badge-att">En attente de votre décision</span>
         <div class="info-row"><span class="lbl">Référence</span>          <span class="val"><strong>${demande.idDemande}</strong></span></div>
         <div class="info-row"><span class="lbl">Employé</span>            <span class="val">${demande.prenom} ${demande.nom}</span></div>
-        <div class="info-row"><span class="lbl">Service / Poste</span>    <span class="val">${demande.service || '—'}</span></div>
-        <div class="info-row"><span class="lbl">Type de permission</span> <span class="val">${demande.typePerm}</span></div>
+        <div class="info-row"><span class="lbl">Département</span>        <span class="val">${demande.departement || '—'}</span></div>
         <div class="info-row"><span class="lbl">Motif / Absence</span>    <span class="val">${motif}</span></div>
         <div class="info-row"><span class="lbl">Du</span>                 <span class="val">${demande.dateDebut} à ${demande.heureDebut}</span></div>
         <div class="info-row"><span class="lbl">Au</span>                 <span class="val">${demande.dateFin} à ${demande.heureFin}</span></div>

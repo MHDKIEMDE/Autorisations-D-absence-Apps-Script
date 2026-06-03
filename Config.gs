@@ -71,12 +71,11 @@ const CONFIG = {
   // 🏢  Mapping Département → Supérieur + Circuit de validation
   //
   //     Clé = valeur EXACTE du champ "Département" dans le formulaire
-  //           (noms simples, sans emails)
   //
   //     sup      = clé dans PERSONNEL.superieurs (ou null)
   //     workflow = 'SUP_PRES' | 'PRES'
   //       'SUP_PRES' — Supérieur → Présidence
-  //       'PRES'     — Présidence directement
+  //       'PRES'     — Présidence directement (chefs de section)
   // ----------------------------------------------------------
   SERVICE_SUP_MAP: {
     'CpD':                       { sup: 'SUP_CPD',       workflow: 'SUP_PRES', nomOrg: 'Massaka SAS' },
@@ -127,34 +126,34 @@ const CONFIG = {
 
   // ----------------------------------------------------------
   // 📊  Index des colonnes (base 1 — A=1)
+  //
+  //     Colonnes A–L  : réponses du formulaire Google
+  //     Colonnes M–X  : gérées automatiquement par le script
   // ----------------------------------------------------------
   COL: {
     HORODATEUR:     1,   // A  — Timestamp soumission
-    EMAIL_EMPLOYE:  2,   // B  — Email employé
+    EMAIL_EMPLOYE:  2,   // B  — Adresse e-mail
     NOM:            3,   // C  — Nom
     PRENOM:         4,   // D  — Prénom
-    SERVICE:        5,   // E  — Département
-    TYPE_PERM:      6,   // F  — Type de permission
-    TYPE_ABSENCE:   7,   // G  — Type d'absence (Permission exceptionnelle)
-    DATE_DEBUT:     8,   // H  — Date de début
-    HEURE_DEBUT:    9,   // I  — Heure de début
-    DATE_FIN:       10,  // J  — Date de fin
-    HEURE_FIN:      11,  // K  — Heure de fin
-    MOTIF_LONG:     12,  // L  — Motif (Permission ordinaire)
-    NB_JOURS:       13,  // M  — Nombre de jours
-    DATE_DEBUT_ORD: 14,  // N  — Date début (Permission ordinaire)
-    DATE_FIN_ORD:   15,  // O  — Date fin (Permission ordinaire)
-    EMAIL_SUP:      16,  // P  — Email supérieur (résolu automatiquement)
-    AVIS_SUP:       17,  // Q  — Avis supérieur
-    AVIS_PRES:      18,  // R  — Avis Présidence
-    COMMENTAIRE:    19,  // S  — Motif de rejet / commentaire
-    ID_DEMANDE:     20,  // T  — MSK-2026-0001
-    TOKEN_SUP:      21,  // U  — Token supérieur
-    TOKEN_PRES:     22,  // V  — Token Présidence
-    STATUT_GLOBAL:  23,  // W  — Statut global
-    DATE_CLOTURE:   24,  // X  — Date de clôture
-    DRIVE_DOSSIER:  25,  // Y  — ID dossier Drive
-    DRIVE_DOC:      26,  // Z  — ID Google Doc
-    RELANCE:        27   // AA — Date dernière relance automatique
+    DEPARTEMENT:    5,   // E  — Département
+    TYPE_ABSENCE:   6,   // F  — Type d'absence (Maladie / Famille / Activités syndicales / Activités judiciaires / Motif syndical / Autre)
+    FAMILLE:        7,   // G  — Sous-type Famille (rempli uniquement si TYPE_ABSENCE = "Famille")
+    HEURE_DEBUT:    8,   // H  — Heure de début
+    HEURE_FIN:      9,   // I  — Heure de fin
+    DATE_DEBUT:     10,  // J  — Date de début
+    DATE_FIN:       11,  // K  — Date de fin
+    MOTIF:          12,  // L  — Motif libre (rempli si TYPE_ABSENCE = "Autre" ou FAMILLE = "Autre")
+    EMAIL_SUP:      13,  // M  — Email supérieur (résolu automatiquement)
+    AVIS_SUP:       14,  // N  — Avis supérieur
+    AVIS_PRES:      15,  // O  — Avis Présidence
+    COMMENTAIRE:    16,  // P  — Motif de rejet / commentaire
+    ID_DEMANDE:     17,  // Q  — MSK-2026-0001
+    TOKEN_SUP:      18,  // R  — Token supérieur
+    TOKEN_PRES:     19,  // S  — Token Présidence
+    STATUT_GLOBAL:  20,  // T  — Statut global
+    DATE_CLOTURE:   21,  // U  — Date de clôture
+    DRIVE_DOSSIER:  22,  // V  — ID dossier Drive
+    DRIVE_DOC:      23,  // W  — ID Google Doc
+    RELANCE:        24   // X  — Date dernière relance automatique
   }
 };

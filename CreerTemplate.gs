@@ -84,7 +84,7 @@ function creerTemplateDoc() {
   const tIdentite = body.appendTable([
     ['Nom de l\'employé',  '{{NOM}}'],
     ['Prénoms',            '{{PRENOM}}'],
-    ['Service / Fonction', '{{SERVICE}}'],
+    ['Département', '{{SERVICE}}'],
   ]);
   _styleTableau(tIdentite, TEAL_LT, BLANC, BORDER, TEAL, TEXTE, 150);
 
@@ -105,23 +105,6 @@ function creerTemplateDoc() {
     ['Date de fin',   '{{DATE_FIN}}  à  {{HEURE_FIN}}'],
   ]);
   _styleTableau(tExc, GRIS, BLANC, BORDER, TEAL, TEXTE, 150);
-
-  // ----------------------------------------------------------
-  // 5. SECTION Permission ordinaire
-  // ----------------------------------------------------------
-  _espaceur(body, 14);
-  _bandeauSection(body, '❖  Permission ordinaire', BLANC, TEAL);
-
-  const pDescOrd = body.appendParagraph('Avec retenue sur salaire ou sur le congé annuel.');
-  _noteStyle(pDescOrd, GRIS_T);
-
-  const tOrd = body.appendTable([
-    ['Motif de l\'absence',        '{{MOTIF_ORDINAIRE}}'],
-    ['Nombre de jours sollicités', '{{NB_JOURS_ORDINAIRE}} jours'],
-    ['Du',                         '{{DATE_DEBUT_ORDINAIRE}}'],
-    ['Au',                         '{{DATE_FIN_ORDINAIRE}}'],
-  ]);
-  _styleTableau(tOrd, GRIS, BLANC, BORDER, TEAL, TEXTE, 150);
 
   // ----------------------------------------------------------
   // 6. SECTION Validations

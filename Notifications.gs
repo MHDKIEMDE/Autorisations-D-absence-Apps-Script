@@ -93,23 +93,15 @@ function blocRecapitulatif(demande, theme) {
   const cld = theme ? theme.couleurLabelDuree : '#856404';
   const cb  = theme ? theme.couleurBadge     : '#f8c542';
 
-  const estOrdinaire = demande.typePerm === 'Permission ordinaire';
+  const motif = demande.famille
+    ? (demande.famille === 'Autre' ? `Famille — ${demande.motif || '—'}` : demande.famille)
+    : (demande.typeAbsence === 'Autre' ? demande.motif || '—' : demande.typeAbsence || '—');
 
-  const motif = estOrdinaire
-    ? (demande.motifLong || '—')
-    : (demande.typeAbsence || demande.motifLong || '—');
+  const duree = calculerDuree(demande);
 
-  const duree = estOrdinaire
-    ? (demande.nbJours ? `${demande.nbJours} jour(s)` : '—')
-    : calculerDuree(demande);
-
-  const lignesDates = estOrdinaire ? `
-      <tr><td>Du</td>             <td>${demande.dateDebutOrd || '—'}</td></tr>
-      <tr><td>Au</td>             <td>${demande.dateFinOrd   || '—'}</td></tr>
-      <tr><td>Nombre de jours</td><td>${demande.nbJours      || '—'}</td></tr>
-  ` : `
-      <tr><td>Du</td>             <td>${demande.dateDebut} à ${demande.heureDebut}</td></tr>
-      <tr><td>Au</td>             <td>${demande.dateFin}   à ${demande.heureFin}</td></tr>
+  const lignesDates = `
+      <tr><td>Du</td> <td>${demande.dateDebut} à ${demande.heureDebut}</td></tr>
+      <tr><td>Au</td> <td>${demande.dateFin}   à ${demande.heureFin}</td></tr>
   `;
 
   return `
@@ -133,7 +125,6 @@ function blocRecapitulatif(demande, theme) {
     <table class="recap">
       <tr><td>Référence</td>          <td><strong>${demande.idDemande}</strong></td></tr>
       <tr><td>Employé</td>            <td>${demande.prenom} ${demande.nom}</td></tr>
-      <tr><td>Type de permission</td> <td>${demande.typePerm}</td></tr>
       ${lignesDates}
     </table>
   `;
@@ -146,7 +137,7 @@ function blocRecapitulatif(demande, theme) {
 function envoyerAccuseReceptionEmploye(demande) {
   const nomOrg   = demande.nomOrg || CONFIG.NOM_ORG;
   const theme    = getThemeEmail(nomOrg, demande.emailSuperieur);
-  const workflow = ((CONFIG.SERVICE_SUP_MAP || {})[demande.service] || {}).workflow || 'PRES';
+  const workflow = ((CONFIG.SERVICE_SUP_MAP || {})[demande.departement] || {}).workflow || 'PRES';
 
   const texteEtapes = {
     'SUP_PRES': 'Votre demande sera examinée successivement par votre supérieur hiérarchique, puis par la présidence.',
@@ -279,7 +270,7 @@ function envoyerNotificationValidateur(demande, niveau, token, estRelance) {
               </tr>
             </table>
             <p style="font-size:13px;color:${theme.couleurTexteTableau || '#555555'};margin-top:12px;line-height:1.6">
-              Trouvez la ligne <strong>${demande.idDemande}</strong>, saisissez votre motif en colonne S si vous rejetez,
+              Trouvez la ligne <strong>${demande.idDemande}</strong>, saisissez votre motif en colonne P si vous rejetez,
               puis choisissez <strong>Approuvé</strong> ou <strong>Rejeté</strong> dans la colonne qui vous correspond.
             </p>
           </div>

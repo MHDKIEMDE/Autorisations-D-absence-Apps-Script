@@ -12,17 +12,13 @@ function onFormSubmit(e) {
     // ----------------------------------------------------------
     // 1. Lire les données brutes pour la règle 72h
     // ----------------------------------------------------------
-    const typePerm     = sheet.getRange(row, CONFIG.COL.TYPE_PERM).getValue();
-    const colDateDebut = (typePerm === 'Permission ordinaire')
-      ? CONFIG.COL.DATE_DEBUT_ORD
-      : CONFIG.COL.DATE_DEBUT;
-    const dateDebut  = sheet.getRange(row, colDateDebut).getValue();
+    const dateDebut  = sheet.getRange(row, CONFIG.COL.DATE_DEBUT).getValue();
     const heureDebut = sheet.getRange(row, CONFIG.COL.HEURE_DEBUT).getValue();
 
     // ----------------------------------------------------------
-    // 1b. Résoudre le supérieur et le workflow depuis le service
+    // 1b. Résoudre le supérieur et le workflow depuis le département
     // ----------------------------------------------------------
-    const service       = sheet.getRange(row, CONFIG.COL.SERVICE).getValue().toString().trim();
+    const service       = sheet.getRange(row, CONFIG.COL.DEPARTEMENT).getValue().toString().trim();
     const serviceConfig = (CONFIG.SERVICE_SUP_MAP || {})[service] || {};
     // sup est une clé interne (ex: 'SUP_CPD') — résolution de l'email via PERSONNEL
     const emailSup      = getEmailSuperieur(serviceConfig.sup);

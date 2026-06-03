@@ -61,11 +61,10 @@ function lireDemande(sheet, row) {
     nom:            r[CONFIG.COL.NOM           - 1] || '',
     prenom:         r[CONFIG.COL.PRENOM        - 1] || '',
     nomComplet:     `${r[CONFIG.COL.NOM - 1] || ''} ${r[CONFIG.COL.PRENOM - 1] || ''}`.trim(),
-    service:        (r[CONFIG.COL.SERVICE - 1] || '').toString().trim(),
-    typePerm:       r[CONFIG.COL.TYPE_PERM     - 1] || '',
-    typeAbsence:    r[CONFIG.COL.TYPE_ABSENCE  - 1] || '',
-    motifLong:      r[CONFIG.COL.MOTIF_LONG    - 1] || '',
-    nbJours:        r[CONFIG.COL.NB_JOURS      - 1] || '',
+    departement:    (r[CONFIG.COL.DEPARTEMENT   - 1] || '').toString().trim(),
+    typeAbsence:    r[CONFIG.COL.TYPE_ABSENCE   - 1] || '',
+    famille:        r[CONFIG.COL.FAMILLE        - 1] || '',
+    motif:          r[CONFIG.COL.MOTIF          - 1] || '',
     dateDebutRaw,
     heureDebutRaw,
     dateFinRaw,
@@ -74,8 +73,6 @@ function lireDemande(sheet, row) {
     heureDebut:     heureDebutRaw ? formatHeure(heureDebutRaw) : '',
     dateFin:        dateFinRaw    ? formatDate(dateFinRaw)     : '',
     heureFin:       heureFinRaw   ? formatHeure(heureFinRaw)   : '',
-    dateDebutOrd:   r[CONFIG.COL.DATE_DEBUT_ORD - 1] ? formatDate(r[CONFIG.COL.DATE_DEBUT_ORD - 1]) : '',
-    dateFinOrd:     r[CONFIG.COL.DATE_FIN_ORD   - 1] ? formatDate(r[CONFIG.COL.DATE_FIN_ORD   - 1]) : '',
     emailSuperieur: r[CONFIG.COL.EMAIL_SUP      - 1] || '',
     avisSuperieur:  r[CONFIG.COL.AVIS_SUP       - 1] || '',
     avisPres:       r[CONFIG.COL.AVIS_PRES      - 1] || '',
@@ -86,7 +83,7 @@ function lireDemande(sheet, row) {
     dateCloture:    r[CONFIG.COL.DATE_CLOTURE   - 1] || null,
     driveDossierID: r[CONFIG.COL.DRIVE_DOSSIER  - 1] || '',
     driveDocID:     r[CONFIG.COL.DRIVE_DOC      - 1] || '',
-    nomOrg: ((CONFIG.SERVICE_SUP_MAP || {})[(r[CONFIG.COL.SERVICE - 1] || '').toString().trim()] || {}).nomOrg || CONFIG.NOM_ORG
+    nomOrg: ((CONFIG.SERVICE_SUP_MAP || {})[(r[CONFIG.COL.DEPARTEMENT - 1] || '').toString().trim()] || {}).nomOrg || CONFIG.NOM_ORG
   };
 }
 
@@ -231,9 +228,7 @@ function joursOuvrables(dateDebut) {
 }
 
 function calculerDuree(demande) {
-  if (!demande.dateDebutRaw || !demande.dateFinRaw) {
-    return demande.nbJours ? `${demande.nbJours} jour(s)` : 'N/A';
-  }
+  if (!demande.dateDebutRaw || !demande.dateFinRaw) return 'N/A';
 
   function extractTime(raw) {
     const d = new Date(raw);
@@ -248,15 +243,13 @@ function calculerDuree(demande) {
   const dFin   = new Date(fin.getFullYear(),   fin.getMonth(),   fin.getDate());
   const diffJours = Math.round((dFin - dDebut) / 86400000);
 
-  if (diffJours < 0) {
-    return demande.nbJours ? `${demande.nbJours} jour(s)` : 'N/A';
-  }
+  if (diffJours < 0) return 'N/A';
 
   if (diffJours === 0) {
     const t1 = demande.heureDebutRaw ? extractTime(demande.heureDebutRaw) : { h: 0, m: 0 };
     const t2 = demande.heureFinRaw   ? extractTime(demande.heureFinRaw)   : { h: 0, m: 0 };
     const diffMin = (t2.h * 60 + t2.m) - (t1.h * 60 + t1.m);
-    if (diffMin <= 0) return demande.nbJours ? `${demande.nbJours} jour(s)` : 'N/A';
+    if (diffMin <= 0) return 'N/A';
     const h = Math.floor(diffMin / 60);
     const m = diffMin % 60;
     return m === 0 ? `${h}h` : `${h}h${String(m).padStart(2, '0')}`;

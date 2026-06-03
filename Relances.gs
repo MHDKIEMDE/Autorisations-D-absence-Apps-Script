@@ -33,7 +33,7 @@ function verifierEtRelancer() {
 
     if (token.startsWith('UTILISE_') || token.startsWith('INVALIDE_')) return;
 
-    const dateDebutRaw = r[CONFIG.COL.DATE_DEBUT - 1] || r[CONFIG.COL.DATE_DEBUT_ORD - 1];
+    const dateDebutRaw = r[CONFIG.COL.DATE_DEBUT - 1];
     const dateDebut    = dateDebutRaw ? new Date(dateDebutRaw) : null;
     if (dateDebut && !isNaN(dateDebut) && today >= dateDebut) {
       log('INFO', 'Relances', `Relance ignorée — date de début passée (ligne ${row})`);

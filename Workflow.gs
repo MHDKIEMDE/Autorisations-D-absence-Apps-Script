@@ -32,7 +32,7 @@ function traiterDecision(token, decision, motif) {
   const sheet   = getSheetReponses();
   const demande = lireDemande(sheet, row);
 
-  const service  = sheet.getRange(row, CONFIG.COL.SERVICE).getValue().toString().trim();
+  const service  = sheet.getRange(row, CONFIG.COL.DEPARTEMENT).getValue().toString().trim();
   const workflow = ((CONFIG.SERVICE_SUP_MAP || {})[service] || {}).workflow || 'PRES';
 
   // ----------------------------------------------------------
@@ -245,7 +245,7 @@ function traiterDecisionManuelle(e) {
       return;
     }
 
-    const service  = sheet.getRange(row, CONFIG.COL.SERVICE).getValue().toString().trim();
+    const service  = sheet.getRange(row, CONFIG.COL.DEPARTEMENT).getValue().toString().trim();
     const workflow = ((CONFIG.SERVICE_SUP_MAP || {})[service] || {}).workflow || 'PRES';
 
     // Garde : respect de l'ordre hiérarchique (SUP_PRES uniquement)
@@ -308,7 +308,7 @@ function traiterDecisionManuelle(e) {
       if (!motif) {
         e.range.setValue(ancienneValeur || 'En attente');
         SpreadsheetApp.getActiveSpreadsheet().toast(
-          'Veuillez d\'abord saisir le motif de rejet en colonne S, ' +
+          'Veuillez d\'abord saisir le motif de rejet en colonne P, ' +
           'puis remettre "Rejeté" dans cette colonne.',
           '⚠️ Motif requis', 12
         );
