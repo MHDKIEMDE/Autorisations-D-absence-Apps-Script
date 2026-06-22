@@ -93,9 +93,18 @@ function blocRecapitulatif(demande, theme) {
   const cld = theme ? theme.couleurLabelDuree : '#856404';
   const cb  = theme ? theme.couleurBadge     : '#f8c542';
 
-  const motif = demande.famille
-    ? (demande.famille === 'Autre' ? `Famille — ${demande.motif || '—'}` : demande.famille)
-    : (demande.typeAbsence === 'Autre' ? demande.motif || '—' : demande.typeAbsence || '—');
+  let motif;
+  if (demande.typeAbsence === 'Famille') {
+    motif = (demande.famille === 'Autre')
+      ? `Famille — ${demande.motif || '—'}`
+      : (demande.famille || 'Famille');
+  } else if (demande.typeAbsence === 'Urgence') {
+    motif = demande.motifUrgence ? `Urgence — ${demande.motifUrgence}` : 'Urgence';
+  } else if (demande.typeAbsence === 'Autre') {
+    motif = demande.motif || '—';
+  } else {
+    motif = demande.typeAbsence || '—';
+  }
 
   const duree = calculerDuree(demande);
 
@@ -210,7 +219,7 @@ function envoyerNotificationValidateur(demande, niveau, token, estRelance) {
 
   } else if (niveau === 'Presidence') {
     labelNiveau = 'Présidence';
-    const pres   = getPresidencePourSup(demande.emailSuperieur, demande.nomOrg);
+    const pres   = getPresidencePourSup(demande);
     const emails = pres.emails || [];
     const noms   = pres.noms   || [];
     emails.forEach((email, i) => {

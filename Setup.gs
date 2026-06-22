@@ -171,7 +171,7 @@ function initialiserProjet() {
   }
 
   // ----------------------------------------------------------
-  // 1. En-tetes des colonnes script M → X (uniquement si vides)
+  // 1. En-tetes des colonnes script O → Z (uniquement si vides)
   // ----------------------------------------------------------
   const headers = [
     { col: CONFIG.COL.EMAIL_SUP,     nom: 'Email_Superieur'  },
@@ -191,13 +191,21 @@ function initialiserProjet() {
   headers.forEach(({ col, nom }) => {
     const cell = sheet.getRange(1, col);
     if (!cell.getValue()) {
-      cell.setValue(nom)
-        .setFontWeight('bold')
-        .setBackground('#d9d9d9')
-        .setFontColor('#333333');
+      cell.setValue(nom);
     }
   });
-  Logger.log('[INFO][Setup] En-tetes colonnes script M-X verifies/crees.');
+
+  // Style uniforme de la ligne d'en-tête (A → Z) : fond noir,
+  // texte blanc, gras, centré. Couvre colonnes formulaire ET script.
+  const dernCol = CONFIG.COL.RELANCE;  // Z
+  sheet.getRange(1, 1, 1, dernCol)
+    .setBackground('#000000')
+    .setFontColor('#ffffff')
+    .setFontWeight('bold')
+    .setHorizontalAlignment('center')
+    .setVerticalAlignment('middle');
+  sheet.setFrozenRows(1);  // figer la ligne d'en-tête
+  Logger.log('[INFO][Setup] En-tetes O-Z crees + style noir/blanc applique sur A-Z.');
 
   // ----------------------------------------------------------
   // 2. Installer le trigger onFormSubmit (si absent)
@@ -260,8 +268,8 @@ function initialiserProjet() {
     'Initialisation réussie !\n\n' +
     'Prochaines étapes (tout dans Config.gs) :\n\n' +
     '1. Renseigner les vrais emails dans PERSONNEL :\n' +
-    '   presidence[0].email, presidence[1].email\n' +
-    '   superieurs.SUP_CPD.email, etc.\n\n' +
+    '   presidences.PRES_CPD / PRES_SAF (groupes par département)\n' +
+    '   presidenceDefaut, superieurs.SUP_CPD.email, etc.\n\n' +
     '2. Renseigner DRIVE_DOSSIER_RACINE et DRIVE_DOSSIER_TEMPLATE\n\n' +
     '3. Déployer la Web App puis copier l\'URL dans WEBAPP_URL\n\n' +
     '4. Tester avec une soumission formulaire.'
@@ -336,20 +344,26 @@ function configurerProtections(ss, sheet) {
   // Listes d'emails validateurs — lues depuis CONFIG.PERSONNEL
   const sups       = (CONFIG.PERSONNEL || {}).superieurs || {};
   const emailsSup  = Object.values(sups).map(s => s.email).filter(Boolean);
-  const pres       = (CONFIG.PERSONNEL || {}).presidence || [];
-  const emailsPres = pres.map(p => p.email).filter(Boolean);
+  // Tous les présidents de tous les groupes + groupe par défaut
+  const groupesPres = (CONFIG.PERSONNEL || {}).presidences || {};
+  const presDefaut  = (CONFIG.PERSONNEL || {}).presidenceDefaut || [];
+  const emailsPres = []
+    .concat(...Object.values(groupesPres), presDefaut)
+    .map(p => p.email)
+    .filter(Boolean)
+    .filter((e, i, arr) => arr.indexOf(e) === i); // dédoublonnage
 
   // ----------------------------------------------------------
-  // 1. Colonnes A–L : données formulaire — avertissement seul
+  // 1. Colonnes A–N : données formulaire — avertissement seul
   // ----------------------------------------------------------
-  const nbColsFormulaire = CONFIG.COL.MOTIF; // colonne L incluse
+  const nbColsFormulaire = CONFIG.COL.DATE_FIN; // dernière colonne formulaire (N)
   const pForm = sheet.getRange(2, 1, lastRow - 1, nbColsFormulaire).protect();
   pForm.setDescription('Données formulaire — ne pas modifier manuellement');
   pForm.setWarningOnly(true);
-  Logger.log('[OK][Setup] Protection avertissement colonnes A-L configuree');
+  Logger.log('[OK][Setup] Protection avertissement colonnes A-N configuree');
 
   // ----------------------------------------------------------
-  // 2. Colonne N — AVIS_SUP : supérieurs uniquement
+  // 2. Colonne P — AVIS_SUP : supérieurs uniquement
   // ----------------------------------------------------------
   const pSup = sheet.getRange(2, CONFIG.COL.AVIS_SUP, lastRow - 1).protect();
   pSup.setDescription('Réservé : Supérieurs hiérarchiques');
@@ -363,7 +377,7 @@ function configurerProtections(ss, sheet) {
   }
 
   // ----------------------------------------------------------
-  // 3. Colonne O — AVIS_PRES : Présidence uniquement
+  // 3. Colonne Q — AVIS_PRES : Présidence uniquement
   // ----------------------------------------------------------
   const pPres = sheet.getRange(2, CONFIG.COL.AVIS_PRES, lastRow - 1).protect();
   pPres.setDescription('Réservé : Présidence');
@@ -374,12 +388,12 @@ function configurerProtections(ss, sheet) {
   }
 
   // ----------------------------------------------------------
-  // 4. Colonne P — COMMENTAIRE : aucune protection (libre)
+  // 4. Colonne R — COMMENTAIRE : aucune protection (libre)
   // ----------------------------------------------------------
-  Logger.log('[OK][Setup] Colonne P (Commentaire) — sans protection (libre)');
+  Logger.log('[OK][Setup] Colonne R (Commentaire) — sans protection (libre)');
 
   // ----------------------------------------------------------
-  // 5. Colonnes Q–X : colonnes système — avertissement seul
+  // 5. Colonnes S–Z : colonnes système — avertissement seul
   //    (ID demande, tokens, statut global, dates, Drive IDs...)
   // ----------------------------------------------------------
   const colDebutSys = CONFIG.COL.ID_DEMANDE;
@@ -387,10 +401,10 @@ function configurerProtections(ss, sheet) {
   const pSys = sheet.getRange(2, colDebutSys, lastRow - 1, nbColsSys).protect();
   pSys.setDescription('Colonnes système — réservées au script');
   pSys.setWarningOnly(true);
-  Logger.log('[OK][Setup] Protection avertissement colonnes système (Q-X) configuree');
+  Logger.log('[OK][Setup] Protection avertissement colonnes système (S-Z) configuree');
 
   // ----------------------------------------------------------
-  // 6. Validation de données (dropdown) sur N et O
+  // 6. Validation de données (dropdown) sur P et Q
   // ----------------------------------------------------------
   const regleAvis = SpreadsheetApp.newDataValidation()
     .requireValueInList(['En attente', 'Approuvé', 'Rejeté'], true)
@@ -401,16 +415,16 @@ function configurerProtections(ss, sheet) {
   const nbLignesValidation = Math.max(lastRow - 1, 2000);
   sheet.getRange(2, CONFIG.COL.AVIS_SUP,  nbLignesValidation).setDataValidation(regleAvis);
   sheet.getRange(2, CONFIG.COL.AVIS_PRES, nbLignesValidation).setDataValidation(regleAvis);
-  Logger.log('[OK][Setup] Validation de données (dropdown) configurée sur N et O');
+  Logger.log('[OK][Setup] Validation de données (dropdown) configurée sur P et Q');
 
   try {
     SpreadsheetApp.getUi().alert(
       '✅ Protections configurées !\n\n' +
-      '• Colonne N (Avis Supérieur)  → ' + (emailsSup.length > 0 ? emailsSup.join(', ') : '⚠️ aucun supérieur défini') + '\n' +
-      '• Colonne O (Avis Présidence) → ' + (emailsPres.length > 0 ? emailsPres.join(', ') : '⚠️ non défini') + '\n' +
-      '• Colonne P (Commentaire)     → libre (accessible à tous)\n' +
-      '• Colonnes A–L et Q–X         → avertissement (réservé script/formulaire)\n\n' +
-      'Un menu déroulant (En attente / Approuvé / Rejeté) a été ajouté sur N et O.'
+      '• Colonne P (Avis Supérieur)  → ' + (emailsSup.length > 0 ? emailsSup.join(', ') : '⚠️ aucun supérieur défini') + '\n' +
+      '• Colonne Q (Avis Présidence) → ' + (emailsPres.length > 0 ? emailsPres.join(', ') : '⚠️ non défini') + '\n' +
+      '• Colonne R (Commentaire)     → libre (accessible à tous)\n' +
+      '• Colonnes A–N et S–Z         → avertissement (réservé script/formulaire)\n\n' +
+      'Un menu déroulant (En attente / Approuvé / Rejeté) a été ajouté sur P et Q.'
     );
   } catch (e) {
     Logger.log('[INFO][Setup] Alert ignorée (pas de contexte UI — normal si exécuté depuis l\'éditeur).');
