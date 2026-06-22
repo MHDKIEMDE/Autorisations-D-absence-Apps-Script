@@ -64,6 +64,7 @@ function lireDemande(sheet, row) {
     departement:    (r[CONFIG.COL.DEPARTEMENT   - 1] || '').toString().trim(),
     typeAbsence:    r[CONFIG.COL.TYPE_ABSENCE   - 1] || '',
     famille:        r[CONFIG.COL.FAMILLE        - 1] || '',
+    motifUrgence:   r[CONFIG.COL.MOTIF_URGENCE  - 1] || '',
     motif:          r[CONFIG.COL.MOTIF          - 1] || '',
     dateDebutRaw,
     heureDebutRaw,
@@ -140,14 +141,37 @@ function getEmailSuperieur(supKey) {
 }
 
 /**
- * Retourne les validateurs présidence : { emails: [], noms: [] }.
- * Toujours depuis CONFIG.PERSONNEL.presidence.
+ * Retourne le groupe de validateurs présidence pour une demande :
+ *   { emails: [], noms: [] }.
+ *
+ * Le groupe est résolu PAR DÉPARTEMENT :
+ *   SERVICE_SUP_MAP[département].presidence → clé de groupe
+ *   → CONFIG.PERSONNEL.presidences[clé]
+ *
+ * Fallback : CONFIG.PERSONNEL.presidenceDefaut si le département
+ * n'a pas de groupe valide.
+ *
+ * @param {Object} demande  Objet renvoyé par lireDemande (utilise .departement)
  */
-function getPresidencePourSup(emailSup, nomOrg) {
-  const pres = (CONFIG.PERSONNEL || {}).presidence || [];
+function getPresidencePourSup(demande) {
+  const departement = (demande && demande.departement) || '';
+  const serviceConf = (CONFIG.SERVICE_SUP_MAP || {})[departement] || {};
+  const groupes     = (CONFIG.PERSONNEL || {}).presidences || {};
+
+  let groupe = serviceConf.presidence ? groupes[serviceConf.presidence] : null;
+
+  if (!groupe || !groupe.length) {
+    groupe = (CONFIG.PERSONNEL || {}).presidenceDefaut || [];
+    if (serviceConf.presidence) {
+      log('WARN', 'getPresidencePourSup',
+        `Groupe présidence "${serviceConf.presidence}" introuvable/vide pour ` +
+        `département "${departement}" — fallback presidenceDefaut`);
+    }
+  }
+
   return {
-    emails: pres.map(p => p.email).filter(Boolean),
-    noms:   pres.map(p => p.nom).filter(Boolean)
+    emails: groupe.map(p => p.email).filter(Boolean),
+    noms:   groupe.map(p => p.nom).filter(Boolean)
   };
 }
 

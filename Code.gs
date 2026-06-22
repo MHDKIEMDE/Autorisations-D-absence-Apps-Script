@@ -10,13 +10,62 @@ function onFormSubmit(e) {
 
   try {
     // ----------------------------------------------------------
-    // 1. Lire les données brutes pour la règle 72h
+    // 1. Normaliser dates / heures selon le cas
+    //
+    //    Priorité :
+    //    a) Sous-type Famille à durée prédéfinie (DUREES_FAMILLE)
+    //       → date fin = début + (N-1) jours calendaires, journée 08h–17h
+    //    b) Durée "Toute la journée" → journée 08h–17h, fin = début
+    //    c) "Personnaliser" → garde-fou date fin (défaut = début)
     // ----------------------------------------------------------
-    const dateDebut  = sheet.getRange(row, CONFIG.COL.DATE_DEBUT).getValue();
-    const heureDebut = sheet.getRange(row, CONFIG.COL.HEURE_DEBUT).getValue();
+    const H08 = new Date(1899, 11, 30, 8,  0, 0);  // base GAS pour TimeOfDay
+    const H17 = new Date(1899, 11, 30, 17, 0, 0);
+
+    const familleVal  = sheet.getRange(row, CONFIG.COL.FAMILLE).getValue().toString().trim();
+    const dureeFamille = (CONFIG.DUREES_FAMILLE || {})[familleVal];  // nombre de jours ou undefined
+    const dDebut      = sheet.getRange(row, CONFIG.COL.DATE_DEBUT).getValue();
+
+    if (dureeFamille && dDebut) {
+      // a) Famille à durée fixe — fin calculée, journée entière
+      const dFinCalc = new Date(dDebut);
+      dFinCalc.setDate(dFinCalc.getDate() + (dureeFamille - 1));
+      ecrireColonne(sheet, row, CONFIG.COL.HEURE_DEBUT, H08);
+      ecrireColonne(sheet, row, CONFIG.COL.HEURE_FIN,   H17);
+      ecrireColonne(sheet, row, CONFIG.COL.DATE_FIN,    dFinCalc);
+      log('INFO', 'onFormSubmit',
+        `Famille "${familleVal}" — durée ${dureeFamille}j, date fin calculée, ligne ${row}`);
+
+    } else {
+      const duree = sheet.getRange(row, CONFIG.COL.DUREE).getValue().toString().trim();
+      if (/journ[ée]e/i.test(duree)) {
+        // b) Toute la journée
+        if (dDebut) {
+          ecrireColonne(sheet, row, CONFIG.COL.HEURE_DEBUT, H08);
+          ecrireColonne(sheet, row, CONFIG.COL.HEURE_FIN,   H17);
+          ecrireColonne(sheet, row, CONFIG.COL.DATE_FIN,    dDebut);
+          log('INFO', 'onFormSubmit',
+            `Durée "Toute la journée" — heures 08h00–17h00 et date fin injectées, ligne ${row}`);
+        }
+      } else {
+        // c) Personnaliser — garde-fou date fin
+        const dFin = sheet.getRange(row, CONFIG.COL.DATE_FIN).getValue();
+        if (!dFin && dDebut) {
+          ecrireColonne(sheet, row, CONFIG.COL.DATE_FIN, dDebut);
+          log('INFO', 'onFormSubmit',
+            `Date de fin absente — défaut = date de début, ligne ${row}`);
+        }
+      }
+    }
 
     // ----------------------------------------------------------
-    // 1b. Résoudre le supérieur et le workflow depuis le département
+    // 1b. Lire les données brutes pour la règle de délai
+    // ----------------------------------------------------------
+    const dateDebut    = sheet.getRange(row, CONFIG.COL.DATE_DEBUT).getValue();
+    const heureDebut   = sheet.getRange(row, CONFIG.COL.HEURE_DEBUT).getValue();
+    const typeAbsence  = sheet.getRange(row, CONFIG.COL.TYPE_ABSENCE).getValue().toString().trim();
+
+    // ----------------------------------------------------------
+    // 1c. Résoudre le supérieur et le workflow depuis le département
     // ----------------------------------------------------------
     const service       = sheet.getRange(row, CONFIG.COL.DEPARTEMENT).getValue().toString().trim();
     const serviceConfig = (CONFIG.SERVICE_SUP_MAP || {})[service] || {};
@@ -43,8 +92,19 @@ function onFormSubmit(e) {
 
     // ----------------------------------------------------------
     // 3. Rejet automatique si délai insuffisant
+    //    Exemption : les types listés dans TYPES_SANS_DELAI
+    //    (ex: "Urgence") sautent ce contrôle et entrent
+    //    directement dans le circuit de validation.
     // ----------------------------------------------------------
-    {
+    const typesSansDelai = CONFIG.TYPES_SANS_DELAI || [];
+    const exemptDelai    = typesSansDelai.indexOf(typeAbsence) !== -1;
+
+    if (exemptDelai) {
+      log('INFO', 'rejetDelai',
+        `Demande ${idDemande} exemptée du contrôle de délai (type "${typeAbsence}")`);
+    }
+
+    if (!exemptDelai) {
       const dateHeureDebut = new Date(dateDebut);
       if (heureDebut) {
         const h = heureDebut.getHours   ? heureDebut.getHours()   : 0;

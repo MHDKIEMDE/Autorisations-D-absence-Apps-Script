@@ -134,7 +134,7 @@ function traiterDecision(token, decision, motif) {
  * Notifie le second validateur présidence que le premier a déjà statué.
  */
 function _notifierSecondValidateurPresidence(demande, tokenUtilise, demandeAvantCloture) {
-  const pres = getPresidencePourSup(demande.emailSuperieur, demande.nomOrg);
+  const pres = getPresidencePourSup(demande);
   const emails = pres.emails || [];
   const noms   = pres.noms   || [];
 
