@@ -4,12 +4,11 @@
 // ============================================================
 //
 // Circuits :
-//   SUP_PRES : Supérieur → Présidence (2 validateurs — 1er qui valide clôture)
-//   PRES     : Présidence directement (2 validateurs — 1er qui valide clôture)
+//   SUP_PRES : Supérieur → Présidence (président unique)
+//   PRES     : Présidence directement (président unique)
 //
-// Règle Présidence à 2 validateurs :
-//   - Le premier qui approuve/rejette clôture le niveau
-//   - Le second reçoit un email "X a déjà validé cette demande"
+// Un seul président par périmètre (PRES_GENERAL / PRES_SAF) :
+// il valide ou rejette seul ; sa décision clôture la demande.
 // ============================================================
 
 
@@ -75,7 +74,7 @@ function traiterDecision(token, decision, motif) {
       `Décision Approuvé enregistrée - ${niveau} - demande ${demande.idDemande}`);
 
     if (niveau === 'Superieur') {
-      // Passer à la Présidence — notifier les 2 validateurs
+      // Passer à la Présidence — notifier le président
       ecrireColonne(sheet, row, CONFIG.COL.AVIS_PRES, 'En attente');
       const tokenPres = sheet.getRange(row, CONFIG.COL.TOKEN_PRES).getValue();
       envoyerNotificationValidateur(lireDemande(sheet, row), 'Presidence', tokenPres);
@@ -85,10 +84,7 @@ function traiterDecision(token, decision, motif) {
       };
 
     } else if (niveau === 'Presidence') {
-      // Notifier le second validateur présidence si différent de celui qui vient de valider
-      _notifierSecondValidateurPresidence(lireDemande(sheet, row), token, demande);
-
-      // Clôturer
+      // Clôturer (président unique — plus de second validateur à notifier)
       cloturerDemande(sheet, row, 'Approuvé', '');
       const demandeApprouvee = lireDemande(sheet, row);
       const { dossierID, docID } = creerDossierEtDoc(demandeApprouvee);
@@ -112,10 +108,6 @@ function traiterDecision(token, decision, motif) {
     ecrireColonne(sheet, row, CONFIG.COL.COMMENTAIRE, motif.trim());
 
     invaliderTokensRestants(sheet, row, niveau);
-
-    if (niveau === 'Presidence') {
-      _notifierSecondValidateurPresidence(lireDemande(sheet, row), token, demande);
-    }
 
     cloturerDemande(sheet, row, 'Rejeté', motif.trim());
     envoyerConfirmationFinaleEmploye(lireDemande(sheet, row), 'Rejeté', motif.trim());
@@ -266,58 +258,6 @@ function enregistrerReponseEmploye(tokenPrecision, precisions) {
     success: true,
     message: "Merci, vos précisions ont été transmises au validateur."
   };
-}
-
-
-/**
- * Notifie le second validateur présidence que le premier a déjà statué.
- */
-function _notifierSecondValidateurPresidence(demande, tokenUtilise, demandeAvantCloture) {
-  const pres = getPresidencePourSup(demande);
-  const emails = pres.emails || [];
-  const noms   = pres.noms   || [];
-
-  // Identifier l'email du validateur qui vient d'agir via son token
-  // On notifie tous les autres emails présidence
-  const nomOrg = demande.nomOrg || CONFIG.NOM_ORG;
-  const theme  = getThemeEmail(nomOrg, demande.emailSuperieur);
-
-  emails.forEach((email, i) => {
-    if (!email) return;
-    const nom = noms[i] || email;
-
-    const htmlBody = `
-      <!DOCTYPE html><html><head><meta charset="UTF-8">${cssEmail(theme)}</head>
-      <body><div class="wrap">
-        <div class="header">
-          <div class="logo">⬡ ${nomOrg}</div>
-          <div class="sous-titre">Système de gestion des absences</div>
-          <div class="badge">Information — Décision enregistrée</div>
-        </div>
-        <div class="body">
-          <p style="font-size:15px;margin-bottom:4px">Bonjour <strong>${nom}</strong>,</p>
-          <p style="font-size:14px;color:#555555;margin-top:8px;line-height:1.6">
-            La demande <strong>${demande.idDemande}</strong> de
-            <strong>${demande.prenom} ${demande.nom}</strong>
-            a déjà été traitée par un autre validateur présidence.
-            <br><br>
-            Aucune action n'est requise de votre part. Merci pour votre attention.
-          </p>
-          ${blocRecapitulatif(demande, theme)}
-          <p class="note">Référence : <strong>${demande.idDemande}</strong></p>
-        </div>
-        <div class="footer">${nomOrg} — Système automatisé de gestion des absences</div>
-      </div></body></html>
-    `;
-
-    GmailApp.sendEmail(
-      email,
-      `${nomOrg} – Déjà validée – ${demande.idDemande} – ${demande.prenom} ${demande.nom}`,
-      '',
-      { htmlBody: htmlBody, name: nomOrg + ' Système' }
-    );
-    log('OK', 'Workflow', `Notification second validateur → ${email} | ref=${demande.idDemande}`);
-  });
 }
 
 

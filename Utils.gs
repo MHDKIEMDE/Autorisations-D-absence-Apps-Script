@@ -173,37 +173,38 @@ function getEmailSuperieur(supKey) {
 }
 
 /**
- * Retourne le groupe de validateurs présidence pour une demande :
- *   { emails: [], noms: [] }.
+ * Retourne LE président (unique) pour une demande, sous forme
+ *   { emails: [unSeul], noms: [unSeul] } — un tableau d'un seul
+ *   élément pour rester compatible avec les appelants existants.
  *
- * Le groupe est résolu PAR DÉPARTEMENT :
- *   SERVICE_SUP_MAP[département].presidence → clé de groupe
- *   → CONFIG.PERSONNEL.presidences[clé]
+ * Résolution PAR DÉPARTEMENT :
+ *   SERVICE_SUP_MAP[département].presidence → clé président
+ *   → CONFIG.PERSONNEL.presidents[clé]
  *
- * Fallback : CONFIG.PERSONNEL.presidenceDefaut si le département
- * n'a pas de groupe valide.
+ * Fallback : PERSONNEL.presidents.PRES_GENERAL si le département
+ * ne pointe vers aucun président valide.
  *
  * @param {Object} demande  Objet renvoyé par lireDemande (utilise .departement)
  */
 function getPresidencePourSup(demande) {
   const departement = (demande && demande.departement) || '';
   const serviceConf = (CONFIG.SERVICE_SUP_MAP || {})[departement] || {};
-  const groupes     = (CONFIG.PERSONNEL || {}).presidences || {};
+  const presidents  = (CONFIG.PERSONNEL || {}).presidents || {};
 
-  let groupe = serviceConf.presidence ? groupes[serviceConf.presidence] : null;
+  let pres = serviceConf.presidence ? presidents[serviceConf.presidence] : null;
 
-  if (!groupe || !groupe.length) {
-    groupe = (CONFIG.PERSONNEL || {}).presidenceDefaut || [];
+  if (!pres || !pres.email) {
+    pres = presidents.PRES_GENERAL || null;
     if (serviceConf.presidence) {
       log('WARN', 'getPresidencePourSup',
-        `Groupe présidence "${serviceConf.presidence}" introuvable/vide pour ` +
-        `département "${departement}" — fallback presidenceDefaut`);
+        `Président "${serviceConf.presidence}" introuvable pour ` +
+        `département "${departement}" — fallback PRES_GENERAL`);
     }
   }
 
   return {
-    emails: groupe.map(p => p.email).filter(Boolean),
-    noms:   groupe.map(p => p.nom).filter(Boolean)
+    emails: pres && pres.email ? [pres.email] : [],
+    noms:   pres && pres.nom   ? [pres.nom]   : []
   };
 }
 

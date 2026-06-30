@@ -282,8 +282,8 @@ function initialiserProjet() {
     'Initialisation réussie !\n\n' +
     'Prochaines étapes (tout dans Config.gs) :\n\n' +
     '1. Renseigner les vrais emails dans PERSONNEL :\n' +
-    '   presidences.PRES_CPD / PRES_SAF (groupes par département)\n' +
-    '   presidenceDefaut, superieurs.SUP_CPD.email, etc.\n\n' +
+    '   presidents.PRES_GENERAL / PRES_SAF (un président par périmètre)\n' +
+    '   superieurs.SUP_CPD.email, etc.\n\n' +
     '2. Renseigner DRIVE_DOSSIER_RACINE et DRIVE_DOSSIER_TEMPLATE\n\n' +
     '3. Déployer la Web App puis copier l\'URL dans WEBAPP_URL\n\n' +
     '4. Tester avec une soumission formulaire.'
@@ -358,11 +358,9 @@ function configurerProtections(ss, sheet) {
   // Listes d'emails validateurs — lues depuis CONFIG.PERSONNEL
   const sups       = (CONFIG.PERSONNEL || {}).superieurs || {};
   const emailsSup  = Object.values(sups).map(s => s.email).filter(Boolean);
-  // Tous les présidents de tous les groupes + groupe par défaut
-  const groupesPres = (CONFIG.PERSONNEL || {}).presidences || {};
-  const presDefaut  = (CONFIG.PERSONNEL || {}).presidenceDefaut || [];
-  const emailsPres = []
-    .concat(...Object.values(groupesPres), presDefaut)
+  // Tous les présidents (un par périmètre)
+  const presidents = (CONFIG.PERSONNEL || {}).presidents || {};
+  const emailsPres = Object.values(presidents)
     .map(p => p.email)
     .filter(Boolean)
     .filter((e, i, arr) => arr.indexOf(e) === i); // dédoublonnage

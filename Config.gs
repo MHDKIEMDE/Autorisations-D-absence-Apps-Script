@@ -71,15 +71,13 @@ const CONFIG = {
   // ----------------------------------------------------------
   // 👥  PERSONNEL — à modifier ici uniquement
   //
-  //     PRESIDENCES : groupes de présidence PAR PÉRIMÈTRE.
-  //       Chaque groupe est une liste de co-validateurs.
-  //       Le premier qui approuve/rejette clôture la demande ;
-  //       le(s) autre(s) reçoivent un email "déjà validée".
-  //       La clé du groupe (ex: 'PRES_CPD') est référencée par
-  //       SERVICE_SUP_MAP[département].presidence.
-  //
-  //     PRESIDENCE_DEFAUT : groupe utilisé en dernier recours si
-  //       un département ne pointe vers aucun groupe valide.
+  //     PRESIDENTS : UN président unique par périmètre (plus de
+  //       co-présidents). La clé (ex: 'PRES_SAF') est référencée
+  //       par SERVICE_SUP_MAP[département].presidence.
+  //         PRES_GENERAL → valide tout sauf SAF (CpD, Digitale, Technique…)
+  //         PRES_SAF     → valide SAF uniquement
+  //       PRES_GENERAL sert aussi de fallback si un département ne
+  //       pointe vers aucun président valide.
   //
   //     SUPERIEURS : un objet par supérieur.
   //       clé  = identifiant interne (ex: 'SUP_CPD') — ne pas
@@ -89,22 +87,11 @@ const CONFIG = {
   // ----------------------------------------------------------
   PERSONNEL: {
 
-    // Groupes de présidence par périmètre — modifier ici qui
-    // valide CpD, qui valide SAF, etc.
-    presidences: {
-      PRES_CPD: [
-        { email: 'president.cpd1@massaka.com', nom: 'Président CpD'    },  // ← à remplacer
-        { email: 'president.cpd2@massaka.com', nom: 'Co-Président CpD' }   // ← à remplacer
-      ],
-      PRES_SAF: [
-        { email: 'president.saf@massaka.com',  nom: 'Président SAF'    }   // ← à remplacer
-      ]
+    // Un président unique par périmètre — modifier ici qui valide quoi.
+    presidents: {
+      PRES_GENERAL: { email: 'president@massaka.com',     nom: 'Président Massaka SAS' },  // ← à remplacer
+      PRES_SAF:     { email: 'president.saf@massaka.com', nom: 'Président SAF'         }   // ← à remplacer
     },
-
-    // Groupe de présidence par défaut (fallback)
-    presidenceDefaut: [
-      { email: 'president1@massaka.com', nom: 'Président Massaka SAS' }    // ← à remplacer
-    ],
 
     superieurs: {
       SUP_CPD:        { email: 'superieur.cpd@massaka.com',        nom: 'Responsable CpD'          },  // ← à remplacer
@@ -123,15 +110,15 @@ const CONFIG = {
   //     workflow   = 'SUP_PRES' | 'PRES'
   //       'SUP_PRES' — Supérieur → Présidence
   //       'PRES'     — Présidence directement (chefs de section)
-  //     presidence = clé dans PERSONNEL.presidences — désigne QUEL
-  //                  groupe de présidence valide ce département.
-  //                  (fallback : PERSONNEL.presidenceDefaut)
+  //     presidence = clé dans PERSONNEL.presidents — désigne QUEL
+  //                  président valide ce département.
+  //                  (fallback : PRES_GENERAL)
   // ----------------------------------------------------------
   SERVICE_SUP_MAP: {
-    'CpD':       { sup: 'SUP_CPD',       workflow: 'SUP_PRES', presidence: 'PRES_CPD', nomOrg: 'Massaka SAS' },
-    'Digitale':  { sup: 'SUP_DIGITALE',  workflow: 'SUP_PRES', presidence: 'PRES_CPD', nomOrg: 'Massaka SAS' },
-    'Technique': { sup: 'SUP_TECHNIQUE', workflow: 'SUP_PRES', presidence: 'PRES_CPD', nomOrg: 'Massaka SAS' },
-    'SAF':       { sup: null,            workflow: 'PRES',     presidence: 'PRES_SAF', nomOrg: 'Massaka SAS' },
+    'CpD':       { sup: 'SUP_CPD',       workflow: 'SUP_PRES', presidence: 'PRES_GENERAL', nomOrg: 'Massaka SAS' },
+    'Digitale':  { sup: 'SUP_DIGITALE',  workflow: 'SUP_PRES', presidence: 'PRES_GENERAL', nomOrg: 'Massaka SAS' },
+    'Technique': { sup: 'SUP_TECHNIQUE', workflow: 'SUP_PRES', presidence: 'PRES_GENERAL', nomOrg: 'Massaka SAS' },
+    'SAF':       { sup: null,            workflow: 'PRES',     presidence: 'PRES_SAF',     nomOrg: 'Massaka SAS' },
   },
 
   // ----------------------------------------------------------
