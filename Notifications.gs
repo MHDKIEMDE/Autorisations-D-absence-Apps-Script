@@ -196,7 +196,7 @@ function envoyerAccuseReceptionEmploye(demande) {
 // 2. Notification au validateur (Supérieur ou Présidence)
 //    Pour la Présidence : envoie aux 2 emails avec le même token
 // ============================================================
-function envoyerNotificationValidateur(demande, niveau, token, estRelance) {
+function envoyerNotificationValidateur(demande, niveau, token, estRelance, precisions) {
 
   const destinations = [];
   let labelNiveau = '';
@@ -227,6 +227,16 @@ function envoyerNotificationValidateur(demande, niveau, token, estRelance) {
     </div>
   ` : '';
 
+  // Bloc affiché quand l'employé a répondu à une demande de précisions
+  const blocPrecisions = (precisions && precisions.trim()) ? `
+    <div style="background:#e8f4ea;border-left:4px solid #2e7d32;border-radius:6px;padding:12px 16px;margin-bottom:16px">
+      <div style="font-size:11px;font-weight:800;color:#2e7d32;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">
+        💬 Précisions apportées par l'employé
+      </div>
+      <div style="font-size:14px;color:#1b3a1f;line-height:1.6;white-space:pre-wrap">${precisions.trim()}</div>
+    </div>
+  ` : '';
+
   destinations.forEach(({ to, nom }) => {
     if (!to) {
       log('WARN', 'Notifications', `Email manquant pour niveau ${niveau} — vérifiez Config.gs`);
@@ -246,6 +256,7 @@ function envoyerNotificationValidateur(demande, niveau, token, estRelance) {
             Bonjour <strong>${nom}</strong>,
           </p>
           ${blocRelance}
+          ${blocPrecisions}
           <p style="font-size:14px;color:#555555;margin-top:8px;line-height:1.6">
             Une demande d'autorisation d'absence nécessite votre validation
             en tant que <strong>${labelNiveau}</strong>.
@@ -399,4 +410,67 @@ function envoyerConfirmationFinaleEmploye(demande, decision, motif) {
 
   GmailApp.sendEmail(demande.emailEmploye, sujet, '', options);
   log('OK', 'Notifications', `Confirmation finale → ${demande.emailEmploye} | decision=${decision} | org=${nomOrg} | ref=${demande.idDemande}`);
+}
+
+
+// ============================================================
+// Email à l'EMPLOYÉ — demande de précisions par un validateur
+// ============================================================
+function envoyerDemandePrecision(demande, niveau, message, lienReponse) {
+  const nomOrg = demande.nomOrg || CONFIG.NOM_ORG;
+  const theme  = getThemeEmail(nomOrg, demande.emailSuperieur);
+  const labelNiveau = (niveau === 'Superieur') ? 'votre supérieur hiérarchique' : 'la Présidence';
+
+  const sujet = `${nomOrg} – Précisions demandées – ${demande.idDemande}`;
+
+  const blocMessage = (message && message.trim()) ? `
+    <div style="background:${theme.couleurFondMotif || '#f0f9fc'};border-left:4px solid ${theme.couleurAccent || '#016579'};border-radius:6px;padding:12px 16px;margin:16px 0">
+      <div style="font-size:11px;font-weight:800;color:${theme.couleurAccent || '#016579'};text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">
+        Message du validateur
+      </div>
+      <div style="font-size:14px;color:#333333;line-height:1.6;white-space:pre-wrap">${message.trim()}</div>
+    </div>
+  ` : '';
+
+  const htmlBody = `
+    <!DOCTYPE html><html><head><meta charset="UTF-8">${cssEmail(theme)}</head>
+    <body><div class="wrap">
+      <div class="header">
+        <div class="logo">⬡ ${nomOrg}</div>
+        <div class="sous-titre">Système de gestion des absences</div>
+        <div class="badge">Précisions requises</div>
+      </div>
+      <div class="body">
+        <p style="font-size:15px;margin-bottom:4px">
+          Bonjour <strong>${demande.prenom} ${demande.nom}</strong>,
+        </p>
+        <p style="font-size:14px;color:#555555;margin-top:8px;line-height:1.6">
+          Concernant votre demande d'autorisation d'absence
+          <strong>${demande.idDemande}</strong>, ${labelNiveau} souhaite obtenir
+          <strong>plus d'explications</strong> afin de mieux l'examiner.
+        </p>
+        ${blocMessage}
+        ${blocRecapitulatif(demande, theme)}
+        <div class="section-title">Apporter vos précisions</div>
+        <p style="font-size:14px;color:#555555;line-height:1.6;margin-bottom:16px">
+          Cliquez sur le bouton ci-dessous pour répondre. Vos précisions seront
+          transmises directement au validateur.
+        </p>
+        <div style="text-align:center;margin:20px 0">
+          <a href="${lienReponse}"
+             style="display:inline-block;padding:14px 32px;background:${theme.couleurBoutonApprouver || '#008080'};
+                    color:${theme.couleurTexteBoutonApprouver || '#ffffff'};border-radius:8px;
+                    text-decoration:none;font-weight:800;font-size:15px;">
+            ✍️ Répondre à la demande
+          </a>
+        </div>
+        <p class="note">Référence : <strong>${demande.idDemande}</strong></p>
+      </div>
+      <div class="footer">${nomOrg} — Système automatisé de gestion des absences</div>
+    </div></body></html>
+  `;
+
+  GmailApp.sendEmail(demande.emailEmploye, sujet, '', { htmlBody: htmlBody, name: nomOrg });
+  log('OK', 'Notifications',
+    `Demande de précisions → ${demande.emailEmploye} | niveau=${niveau} | ref=${demande.idDemande}`);
 }

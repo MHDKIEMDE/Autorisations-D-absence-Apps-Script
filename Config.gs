@@ -214,6 +214,15 @@ const CONFIG = {
     DATE_CLOTURE:   23,  // W  — Date de clôture
     DRIVE_DOSSIER:  24,  // X  — ID dossier Drive
     DRIVE_DOC:      25,  // Y  — ID Google Doc
-    RELANCE:        26   // Z  — Date dernière relance automatique
-  }
+    RELANCE:        26,  // Z  — Date dernière relance automatique
+    TOKEN_PRECISION:  27, // AA — Token du lien de réponse employé (demande de précisions)
+    NIVEAU_PRECISION: 28, // AB — Niveau ayant demandé les précisions (Superieur/Presidence)
+    NB_PRECISIONS:    29  // AC — Compteur de demandes de précisions (max MAX_PRECISIONS)
+  },
+
+  // ----------------------------------------------------------
+  // 💬  Demande de précisions — nombre maximum d'allers-retours
+  //     qu'un validateur peut déclencher sur une même demande.
+  // ----------------------------------------------------------
+  MAX_PRECISIONS: 2
 };

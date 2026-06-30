@@ -185,7 +185,10 @@ function initialiserProjet() {
     { col: CONFIG.COL.DATE_CLOTURE,  nom: 'Date_Cloture'     },
     { col: CONFIG.COL.DRIVE_DOSSIER, nom: 'Drive_DossierID'  },
     { col: CONFIG.COL.DRIVE_DOC,     nom: 'Drive_DocID'      },
-    { col: CONFIG.COL.RELANCE,       nom: 'Derniere_Relance' }
+    { col: CONFIG.COL.RELANCE,       nom: 'Derniere_Relance' },
+    { col: CONFIG.COL.TOKEN_PRECISION,  nom: 'Token_Precision'  },
+    { col: CONFIG.COL.NIVEAU_PRECISION, nom: 'Niveau_Precision' },
+    { col: CONFIG.COL.NB_PRECISIONS,    nom: 'Nb_Precisions'    }
   ];
 
   headers.forEach(({ col, nom }) => {
@@ -197,7 +200,7 @@ function initialiserProjet() {
 
   // Style uniforme de la ligne d'en-tête (A → Z) : fond noir,
   // texte blanc, gras, centré. Couvre colonnes formulaire ET script.
-  const dernCol = CONFIG.COL.RELANCE;  // Z
+  const dernCol = CONFIG.COL.NB_PRECISIONS;  // AC
   sheet.getRange(1, 1, 1, dernCol)
     .setBackground('#000000')
     .setFontColor('#ffffff')
@@ -408,7 +411,7 @@ function configurerProtections(ss, sheet) {
   //    (ID demande, tokens, statut global, dates, Drive IDs...)
   // ----------------------------------------------------------
   const colDebutSys = CONFIG.COL.ID_DEMANDE;
-  const nbColsSys   = CONFIG.COL.RELANCE - colDebutSys + 1;
+  const nbColsSys   = CONFIG.COL.NB_PRECISIONS - colDebutSys + 1;
   const pSys = sheet.getRange(2, colDebutSys, lastRow - 1, nbColsSys).protect();
   pSys.setDescription('Colonnes système — réservées au script');
   pSys.setWarningOnly(true);
@@ -417,8 +420,11 @@ function configurerProtections(ss, sheet) {
   // ----------------------------------------------------------
   // 6. Validation de données (dropdown) sur P et Q
   // ----------------------------------------------------------
+  // 'En attente de précisions' est une valeur écrite par le script
+  // (pas un choix manuel) — elle doit figurer dans la liste pour ne pas
+  // être marquée invalide par la validation de données.
   const regleAvis = SpreadsheetApp.newDataValidation()
-    .requireValueInList(['En attente', 'Approuvé', 'Rejeté'], true)
+    .requireValueInList(['En attente', 'En attente de précisions', 'Approuvé', 'Rejeté'], true)
     .setAllowInvalid(false)
     .setHelpText('Choisir : En attente, Approuvé ou Rejeté')
     .build();

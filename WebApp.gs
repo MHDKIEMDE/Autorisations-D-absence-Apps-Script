@@ -2,9 +2,11 @@
 // WebApp.gs — Interface HTML de validation (doGet)
 // ============================================================
 // Routes :
-//   ?token=XXX                 → formulaire de decision
-//   ?token=XXX&action=APPROUVE → approbation directe
-//   ?token=XXX&action=REJETE   → rejet avec motif
+//   ?token=XXX                  → formulaire de decision
+//   ?token=XXX&action=APPROUVE  → approbation directe
+//   ?token=XXX&action=REJETE    → rejet avec motif
+//   ?token=XXX&action=PRECISION → le validateur demande des précisions
+//   ?token=YYY&action=REPONSE   → l'employé répond (token = TOKEN_PRECISION)
 // ============================================================
 
 function doGet(e) {
@@ -38,6 +40,42 @@ function doGet(e) {
     const res = traiterDecision(token, 'REJETE', motif);
     if (res.alreadyUsed) return page(pageDejaUtilise(res, nomOrg, theme), theme);
     return page(pageResultat(res, nomOrg, theme), theme);
+  }
+
+  // Le validateur demande des précisions à l'employé
+  if (action === 'PRECISION') {
+    const res = demanderPrecision(token, e.parameter.message || '');
+    if (res.alreadyUsed) return page(pageDejaUtilise(res, nomOrg, theme), theme);
+    return page(pageResultat(res, nomOrg, theme), theme);
+  }
+
+  // L'employé répond à une demande de précisions (token = TOKEN_PRECISION,
+  // donc 'found' ci-dessus est null — on résout via le token de précision).
+  if (action === 'REPONSE') {
+    const fp = trouverLigneParTokenPrecision(token);
+    if (!fp) {
+      return page(pageDejaUtilise({
+        message: "Ce lien de réponse n'est plus actif."
+      }, nomOrg, theme), theme);
+    }
+    const dem = lireDemande(getSheetReponses(), fp.row);
+    nomOrg = dem.nomOrg || CONFIG.NOM_ORG;
+    theme  = getThemeEmail(nomOrg, dem.emailSuperieur);
+
+    // Soumission du formulaire de réponse
+    if (e.parameter.precisions !== undefined) {
+      const res = enregistrerReponseEmploye(token, e.parameter.precisions || '');
+      if (res.alreadyUsed) return page(pageDejaUtilise(res, nomOrg, theme), theme);
+      return page(pageResultat(res, nomOrg, theme), theme);
+    }
+
+    // Affichage du formulaire de réponse
+    if (fp.utilise) {
+      return page(pageDejaUtilise({
+        message: "Ce lien de réponse n'est plus actif (précisions déjà envoyées)."
+      }, nomOrg, theme), theme);
+    }
+    return page(pageReponseEmploye(dem, token, nomOrg), theme);
   }
 
   // Affichage du formulaire de décision
@@ -96,6 +134,9 @@ function cssCommun(theme) {
     textarea:focus { outline: none; border-color: ${acc}; }
     .zone-rejet { background: #fff5f5; border: 1px solid #f5c6cb; border-radius: 6px; padding: 16px; }
     .alerte-rejet { font-size: 13px; color: #721c24; font-weight: 600; margin-bottom: 4px; }
+    .btn-detail { background: #6c757d; color: #ffffff; }
+    .zone-precision { background: #f0f6ff; border: 1px solid #c3d7f0; border-radius: 6px; padding: 16px; }
+    .alerte-precision { font-size: 13px; color: #1c3a5e; font-weight: 600; margin-bottom: 4px; line-height: 1.5; }
     .badge-att { display: inline-block; background: #fff3cd; color: #856404; font-size: 12px; font-weight: 700; padding: 3px 12px; border-radius: 12px; margin-bottom: 14px; }
     .result-box { background: #ffffff; border-radius: 8px; padding: 44px 32px; text-align: center; max-width: 480px; margin: 56px auto; box-shadow: 0 2px 12px rgba(0,0,0,.1); }
     .ico { font-size: 54px; margin-bottom: 16px; }
@@ -155,6 +196,23 @@ function pageFormulaire(demande, token, niveau, nomOrg) {
           </form>
         </div>
       </div>
+      ${(demande.nbPrecisions < (CONFIG.MAX_PRECISIONS || 2)) ? `
+      <div class="card">
+        <h2>Demander plus de détails</h2>
+        <div class="zone-precision">
+          <p class="alerte-precision">
+            Besoin d'explications avant de décider ? Envoyez une demande de précisions
+            à l'employé. Vous recevrez un nouvel email dès qu'il aura répondu.
+          </p>
+          <form method="GET" action="${CONFIG.WEBAPP_URL}">
+            <input type="hidden" name="token"  value="${token}">
+            <input type="hidden" name="action" value="PRECISION">
+            <textarea name="message" id="msgPrecision" placeholder="Que souhaitez-vous savoir ? (facultatif)" maxlength="800"></textarea>
+            <button type="submit" class="btn btn-detail" onclick="this.disabled=true;this.form.submit();">DEMANDER PLUS DE DÉTAILS</button>
+          </form>
+        </div>
+      </div>
+      ` : ''}
       <div class="footer-page">${org} — Système automatisé de gestion des absences</div>
     </div>
     <script>
@@ -162,6 +220,52 @@ function pageFormulaire(demande, token, niveau, nomOrg) {
         var m = document.getElementById('motifRejet').value.trim();
         if (!m) { alert('Veuillez saisir un motif de rejet.'); return false; }
         var btn = document.querySelector('.btn-ko');
+        btn.disabled = true; btn.textContent = 'Envoi en cours...';
+        return true;
+      }
+    </script>`;
+}
+
+
+function pageReponseEmploye(demande, token, nomOrg) {
+  const org = nomOrg || CONFIG.NOM_ORG;
+  const motif = libelleMotif(demande);
+  return `
+    <div class="header">
+      <h1>⬡ ${org}</h1>
+      <div class="sous-titre">Système de gestion des absences</div>
+      <div class="badge-niveau">Précisions demandées</div>
+    </div>
+    <div class="container">
+      <div class="card">
+        <h2>Votre demande</h2>
+        <div class="info-row"><span class="lbl">Référence</span>          <span class="val"><strong>${demande.idDemande}</strong></span></div>
+        <div class="info-row"><span class="lbl">Motif / Absence</span>    <span class="val">${motif}</span></div>
+        <div class="info-row"><span class="lbl">Du</span>                 <span class="val">${demande.dateDebut} à ${demande.heureDebut}</span></div>
+        <div class="info-row"><span class="lbl">Au</span>                 <span class="val">${demande.dateFin} à ${demande.heureFin}</span></div>
+      </div>
+      <div class="card">
+        <h2>Apporter vos précisions</h2>
+        <div class="zone-precision">
+          <p class="alerte-precision">
+            Le validateur souhaite plus d'explications sur votre demande.
+            Décrivez ci-dessous les précisions utiles à l'examen de votre dossier.
+          </p>
+          <form method="GET" action="${CONFIG.WEBAPP_URL}" onsubmit="return validerPrecisions()">
+            <input type="hidden" name="token"  value="${token}">
+            <input type="hidden" name="action" value="REPONSE">
+            <textarea name="precisions" id="txtPrecisions" placeholder="Vos précisions (obligatoire)..." maxlength="1500"></textarea>
+            <button type="submit" class="btn btn-ok">ENVOYER MES PRÉCISIONS</button>
+          </form>
+        </div>
+      </div>
+      <div class="footer-page">${org} — Système automatisé de gestion des absences</div>
+    </div>
+    <script>
+      function validerPrecisions() {
+        var v = document.getElementById('txtPrecisions').value.trim();
+        if (!v) { alert('Veuillez saisir vos précisions.'); return false; }
+        var btn = document.querySelector('.btn-ok');
         btn.disabled = true; btn.textContent = 'Envoi en cours...';
         return true;
       }

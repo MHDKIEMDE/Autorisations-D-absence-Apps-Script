@@ -48,7 +48,7 @@ function getSheetReponses() {
 }
 
 function lireDemande(sheet, row) {
-  const r = sheet.getRange(row, 1, 1, CONFIG.COL.DRIVE_DOC).getValues()[0];
+  const r = sheet.getRange(row, 1, 1, CONFIG.COL.NB_PRECISIONS).getValues()[0];
 
   const dateDebutRaw  = r[CONFIG.COL.DATE_DEBUT  - 1];
   const heureDebutRaw = r[CONFIG.COL.HEURE_DEBUT - 1];
@@ -84,6 +84,9 @@ function lireDemande(sheet, row) {
     dateCloture:    r[CONFIG.COL.DATE_CLOTURE   - 1] || null,
     driveDossierID: r[CONFIG.COL.DRIVE_DOSSIER  - 1] || '',
     driveDocID:     r[CONFIG.COL.DRIVE_DOC      - 1] || '',
+    tokenPrecision:  r[CONFIG.COL.TOKEN_PRECISION  - 1] || '',
+    niveauPrecision: r[CONFIG.COL.NIVEAU_PRECISION - 1] || '',
+    nbPrecisions:    Number(r[CONFIG.COL.NB_PRECISIONS - 1]) || 0,
     nomOrg: ((CONFIG.SERVICE_SUP_MAP || {})[(r[CONFIG.COL.DEPARTEMENT - 1] || '').toString().trim()] || {}).nomOrg || CONFIG.NOM_ORG
   };
 }
@@ -114,6 +117,35 @@ function trouverLigneParTokenOptimise(token) {
       if (tokenBrut === token) {
         return { row: i + 2, niveau, utilise: valCell !== token };
       }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Cherche une demande par son TOKEN DE PRÉCISION (colonne TOKEN_PRECISION).
+ * Ce token est porté par le lien de réponse envoyé à l'employé quand un
+ * validateur demande des précisions.
+ *
+ * @return {Object|null} { row, utilise } ou null si introuvable.
+ *   utilise = true si le token a déjà été consommé (préfixe UTILISE_).
+ */
+function trouverLigneParTokenPrecision(token) {
+  if (!token) return null;
+
+  const sheet   = getSheetReponses();
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return null;
+
+  const vals = sheet.getRange(2, CONFIG.COL.TOKEN_PRECISION, lastRow - 1, 1).getValues();
+  for (let i = 0; i < vals.length; i++) {
+    const valCell = (vals[i][0] || '').toString();
+    let tokenBrut = valCell;
+    if (tokenBrut.startsWith('UTILISE_'))  tokenBrut = tokenBrut.slice(8);
+    if (tokenBrut.startsWith('INVALIDE_')) tokenBrut = tokenBrut.slice(9);
+    if (tokenBrut && tokenBrut === token) {
+      return { row: i + 2, utilise: valCell !== token };
     }
   }
 

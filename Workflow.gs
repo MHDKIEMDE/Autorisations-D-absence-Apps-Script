@@ -132,6 +132,144 @@ function traiterDecision(token, decision, motif) {
 
 
 /**
+ * Le validateur demande des PRÉCISIONS à l'employé avant de décider.
+ *
+ * Effets :
+ *   - vérifie que le niveau est bien "En attente" et que le quota
+ *     MAX_PRECISIONS n'est pas atteint ;
+ *   - consomme le token de décision du validateur (UTILISE_) ;
+ *   - met le statut du niveau à "En attente de précisions" ;
+ *   - mémorise le niveau demandeur + génère un token de réponse employé ;
+ *   - envoie à l'employé un email avec un lien de réponse.
+ *
+ * @param {string} token    Token de décision du validateur.
+ * @param {string} message  Message libre du validateur (peut être vide).
+ */
+function demanderPrecision(token, message) {
+  const resultat = trouverLigneParTokenOptimise(token);
+  if (!resultat) {
+    return { success: false, message: "Ce lien de validation n'est plus actif." };
+  }
+
+  const { row, niveau } = resultat;
+  const sheet   = getSheetReponses();
+  const demande = lireDemande(sheet, row);
+
+  const colStatut = {
+    'Superieur':  CONFIG.COL.AVIS_SUP,
+    'Presidence': CONFIG.COL.AVIS_PRES
+  }[niveau];
+
+  // Le niveau doit être actif
+  if (sheet.getRange(row, colStatut).getValue() !== 'En attente') {
+    return {
+      success: false, alreadyUsed: true,
+      message: `La demande ${demande.idDemande} a déjà été traitée à ce niveau.`
+    };
+  }
+
+  // Quota d'allers-retours
+  const max = CONFIG.MAX_PRECISIONS || 2;
+  if (demande.nbPrecisions >= max) {
+    return {
+      success: false,
+      message: `Le nombre maximum de demandes de précisions (${max}) est atteint ` +
+               `pour cette demande. Merci de l'approuver ou de la rejeter.`
+    };
+  }
+
+  // Consommer le token de décision du validateur
+  const colToken = (niveau === 'Superieur') ? CONFIG.COL.TOKEN_SUP : CONFIG.COL.TOKEN_PRES;
+  ecrireColonne(sheet, row, colToken, 'UTILISE_' + token);
+
+  // Marquer le niveau en attente de précisions + mémoriser le demandeur
+  ecrireColonne(sheet, row, colStatut, 'En attente de précisions');
+  ecrireColonne(sheet, row, CONFIG.COL.NIVEAU_PRECISION, niveau);
+
+  // Générer le token de réponse employé
+  const tokenRep = genererUUID();
+  ecrireColonne(sheet, row, CONFIG.COL.TOKEN_PRECISION, tokenRep);
+
+  // Notifier l'employé
+  const lienReponse = `${CONFIG.WEBAPP_URL}?token=${tokenRep}&action=REPONSE`;
+  envoyerDemandePrecision(lireDemande(sheet, row), niveau, (message || '').trim(), lienReponse);
+
+  log('OK', 'Workflow',
+    `Précisions demandées - ${niveau} - demande ${demande.idDemande} ` +
+    `(aller-retour ${demande.nbPrecisions + 1}/${max})`);
+
+  return {
+    success: true,
+    message: "Votre demande de précisions a été envoyée à l'employé. " +
+             "Vous recevrez un nouvel email dès qu'il aura répondu."
+  };
+}
+
+
+/**
+ * L'employé répond à une demande de précisions via son lien.
+ *
+ * Effets :
+ *   - incrémente le compteur NB_PRECISIONS ;
+ *   - consomme le token de réponse employé (UTILISE_) ;
+ *   - régénère un token de décision pour le validateur demandeur,
+ *     remet le niveau à "En attente" ;
+ *   - renvoie au validateur un email de décision incluant les précisions.
+ *
+ * @param {string} tokenPrecision  Token du lien de réponse employé.
+ * @param {string} precisions      Texte saisi par l'employé (obligatoire).
+ */
+function enregistrerReponseEmploye(tokenPrecision, precisions) {
+  if (!precisions || !precisions.trim()) {
+    return { success: false, message: 'Veuillez saisir vos précisions avant d\'envoyer.' };
+  }
+
+  const found = trouverLigneParTokenPrecision(tokenPrecision);
+  if (!found || found.utilise) {
+    return {
+      success: false, alreadyUsed: true,
+      message: "Ce lien de réponse n'est plus actif (précisions déjà envoyées)."
+    };
+  }
+
+  const row     = found.row;
+  const sheet   = getSheetReponses();
+  const demande = lireDemande(sheet, row);
+
+  const niveau = demande.niveauPrecision || 'Superieur';
+  const colStatut = {
+    'Superieur':  CONFIG.COL.AVIS_SUP,
+    'Presidence': CONFIG.COL.AVIS_PRES
+  }[niveau];
+
+  // Incrémenter le compteur d'allers-retours
+  ecrireColonne(sheet, row, CONFIG.COL.NB_PRECISIONS, demande.nbPrecisions + 1);
+
+  // Consommer le token de réponse employé
+  ecrireColonne(sheet, row, CONFIG.COL.TOKEN_PRECISION, 'UTILISE_' + tokenPrecision);
+
+  // Régénérer un token de décision pour le validateur + réactiver le niveau
+  const tokenDecision = genererUUID();
+  const colToken = (niveau === 'Superieur') ? CONFIG.COL.TOKEN_SUP : CONFIG.COL.TOKEN_PRES;
+  ecrireColonne(sheet, row, colToken, tokenDecision);
+  ecrireColonne(sheet, row, colStatut, 'En attente');
+
+  // Renvoyer la notification de décision au validateur, avec les précisions
+  envoyerNotificationValidateur(
+    lireDemande(sheet, row), niveau, tokenDecision, false, precisions.trim());
+
+  log('OK', 'Workflow',
+    `Réponse employé enregistrée - ${niveau} - demande ${demande.idDemande} ` +
+    `— validateur re-notifié`);
+
+  return {
+    success: true,
+    message: "Merci, vos précisions ont été transmises au validateur."
+  };
+}
+
+
+/**
  * Notifie le second validateur présidence que le premier a déjà statué.
  */
 function _notifierSecondValidateurPresidence(demande, tokenUtilise, demandeAvantCloture) {
