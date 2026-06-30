@@ -93,18 +93,7 @@ function blocRecapitulatif(demande, theme) {
   const cld = theme ? theme.couleurLabelDuree : '#856404';
   const cb  = theme ? theme.couleurBadge     : '#f8c542';
 
-  let motif;
-  if (demande.typeAbsence === 'Famille') {
-    motif = (demande.famille === 'Autre')
-      ? `Famille — ${demande.motif || '—'}`
-      : (demande.famille || 'Famille');
-  } else if (demande.typeAbsence === 'Urgence') {
-    motif = demande.motifUrgence ? `Urgence — ${demande.motifUrgence}` : 'Urgence';
-  } else if (demande.typeAbsence === 'Autre') {
-    motif = demande.motif || '—';
-  } else {
-    motif = demande.typeAbsence || '—';
-  }
+  const motif = libelleMotif(demande);
 
   const duree = calculerDuree(demande);
 

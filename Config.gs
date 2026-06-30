@@ -164,6 +164,10 @@ const CONFIG = {
   DRIVE_DOSSIER_RACINE:   'REMPLACER_PAR_ID_DOSSIER_RACINE',
   DRIVE_DOSSIER_TEMPLATE: 'REMPLACER_PAR_ID_DOSSIER_TEMPLATE',
 
+  // Dossier d'archive ADMIN — reçoit une copie PDF de chaque demande validée.
+  // Partagez ce dossier dans Drive uniquement avec les admins choisis.
+  DRIVE_DOSSIER_ARCHIVE:  'REMPLACER_PAR_ID_DOSSIER_ARCHIVE',
+
   // ----------------------------------------------------------
   // 🌐  URL de la Web App (à renseigner APRÈS déploiement)
   // ----------------------------------------------------------

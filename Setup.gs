@@ -208,6 +208,17 @@ function initialiserProjet() {
   Logger.log('[INFO][Setup] En-tetes O-Z crees + style noir/blanc applique sur A-Z.');
 
   // ----------------------------------------------------------
+  // 1b. Forcer le format des colonnes Heure début / Heure fin
+  //     Sinon, quand "Toute la journée" injecte 08h00/17h00,
+  //     la cellule s'affiche en DATE (30/12/1899) au lieu de
+  //     l'heure. On force "HH:mm:ss" pour afficher 17:00:00.
+  // ----------------------------------------------------------
+  const nbLignesData = Math.max(sheet.getMaxRows() - 1, 1);
+  sheet.getRange(2, CONFIG.COL.HEURE_DEBUT, nbLignesData, 1).setNumberFormat('HH:mm:ss');
+  sheet.getRange(2, CONFIG.COL.HEURE_FIN,   nbLignesData, 1).setNumberFormat('HH:mm:ss');
+  Logger.log('[INFO][Setup] Format HH:mm:ss applique sur les colonnes Heure debut/fin.');
+
+  // ----------------------------------------------------------
   // 2. Installer le trigger onFormSubmit (si absent)
   // ----------------------------------------------------------
   const dejaTrigger = ScriptApp.getProjectTriggers()

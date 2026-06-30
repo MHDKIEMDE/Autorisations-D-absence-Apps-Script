@@ -57,6 +57,12 @@ function onFormSubmit(e) {
       }
     }
 
+    // Forcer l'affichage HEURE sur cette ligne : sans ça, les heures
+    // 08h00/17h00 (objets Date basés sur 1899) s'affichent comme une
+    // date "30/12/1899" dans le Sheet au lieu de "08:00:00" / "17:00:00".
+    sheet.getRange(row, CONFIG.COL.HEURE_DEBUT).setNumberFormat('HH:mm:ss');
+    sheet.getRange(row, CONFIG.COL.HEURE_FIN).setNumberFormat('HH:mm:ss');
+
     // ----------------------------------------------------------
     // 1b. Lire les données brutes pour la règle de délai
     // ----------------------------------------------------------
@@ -97,7 +103,9 @@ function onFormSubmit(e) {
     //    directement dans le circuit de validation.
     // ----------------------------------------------------------
     const typesSansDelai = CONFIG.TYPES_SANS_DELAI || [];
-    const exemptDelai    = typesSansDelai.indexOf(typeAbsence) !== -1;
+    // Comparaison TOLÉRANTE : reconnaît "Urgence" même si l'option du
+    // formulaire a été renommée (ex: "Urgence (sans délai — …)").
+    const exemptDelai    = typesSansDelai.some(t => estType(typeAbsence, t));
 
     if (exemptDelai) {
       log('INFO', 'rejetDelai',

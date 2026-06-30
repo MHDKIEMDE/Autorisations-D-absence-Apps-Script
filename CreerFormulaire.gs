@@ -76,7 +76,7 @@ function creerFormulaire() {
                  'Ces informations identifient votre demande.');
 
   form.addTextItem().setTitle('Nom').setRequired(true);        // C
-  form.addTextItem().setTitle('Prénom').setRequired(true);     // D
+  form.addTextItem().setTitle('Prénom(s)').setRequired(true);  // D
   form.addListItem()
     .setTitle('Département')
     .setHelpText('Sélectionnez le département auquel vous êtes rattaché(e).')
@@ -114,9 +114,10 @@ function creerFormulaire() {
   // 5. SECTION 4 — Motif de l'urgence
   // ----------------------------------------------------------
   const pageUrgence = form.addPageBreakItem()
-    .setTitle('Motif de l\'urgence')
+    .setTitle('Motif de l\'urgence (sans délai — traitement immédiat)')
     .setHelpText('Les demandes pour motif d\'urgence ne sont pas soumises au délai ' +
-                 'de préavis habituel. Décrivez brièvement la situation.');
+                 'de préavis habituel : elles sont traitées immédiatement. ' +
+                 'Décrivez brièvement la situation.');
 
   form.addTextItem()
     .setTitle('Motif de votre urgence')

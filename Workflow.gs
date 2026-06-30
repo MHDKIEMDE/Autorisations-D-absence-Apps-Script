@@ -98,6 +98,7 @@ function traiterDecision(token, decision, motif) {
         `https://docs.google.com/document/d/${docID}/edit`);
       mettreAJourDoc(lireDemande(sheet, row));
       envoyerConfirmationFinaleEmploye(lireDemande(sheet, row), 'Approuvé', '');
+      finaliserEnPDF(sheet, row, lireDemande(sheet, row));
       log('OK', 'Workflow', `Demande ${demande.idDemande} clôturée : Approuvé`);
       return { success: true, message: "Demande approuvée. L'employé a été notifié." };
     }
@@ -292,6 +293,7 @@ function traiterDecisionManuelle(e) {
           `https://docs.google.com/document/d/${docID}/edit`);
         mettreAJourDoc(lireDemande(sheet, row));
         envoyerConfirmationFinaleEmploye(lireDemande(sheet, row), 'Approuvé', '');
+        finaliserEnPDF(sheet, row, lireDemande(sheet, row));
         log('OK', 'traiterDecisionManuelle', `Demande ${demande.idDemande} clôturée : Approuvé`);
         SpreadsheetApp.getActiveSpreadsheet().toast(
           'Demande approuvée et clôturée. L\'employé a été notifié.',

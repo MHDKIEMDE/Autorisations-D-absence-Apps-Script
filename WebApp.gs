@@ -114,9 +114,7 @@ function pageFormulaire(demande, token, niveau, nomOrg) {
     'Presidence': 'Présidence'
   }[niveau];
 
-  const motif = demande.famille
-    ? (demande.famille === 'Autre' ? `Famille — ${demande.motif || '—'}` : demande.famille)
-    : (demande.typeAbsence === 'Autre' ? demande.motif || '—' : demande.typeAbsence || '—');
+  const motif = libelleMotif(demande);
   const duree = calculerDuree(demande);
 
   return `

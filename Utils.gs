@@ -205,6 +205,55 @@ function formatHeure(heure) {
   } catch (e) { return String(heure); }
 }
 
+/**
+ * Compare un libellé de formulaire à un type de base de façon
+ * TOLÉRANTE : insensible à la casse/espaces et indépendante d'un
+ * éventuel suffixe entre parenthèses.
+ *
+ * Permet de renommer une option du formulaire (ex:
+ * "Urgence (sans délai — traitement immédiat)") sans casser la
+ * logique qui repose sur le type de base ("Urgence").
+ *
+ *   estType("Urgence (sans délai…)", "Urgence")  → true
+ *   estType("  urgence ",            "Urgence")  → true
+ *   estType("Urgences",              "Urgence")  → false
+ *
+ * @param {string} valeur  Valeur lue dans le Sheet / le formulaire
+ * @param {string} base    Type de base attendu (ex: "Urgence")
+ */
+function estType(valeur, base) {
+  if (!valeur || !base) return false;
+  // On retire un éventuel suffixe entre parenthèses, puis on normalise
+  const v = valeur.toString().replace(/\s*\(.*$/, '').trim().toLowerCase();
+  return v === base.toString().trim().toLowerCase();
+}
+
+/**
+ * Construit le libellé "Motif / Absence" affiché aux validateurs.
+ * Source unique de vérité — utilisée par les emails (Notifications.gs)
+ * ET par la page web de validation (WebApp.gs), pour éviter toute
+ * divergence d'affichage.
+ *
+ *   Famille  → sous-type famille (ou "Famille — <motif>" si "Autre")
+ *   Urgence  → "Urgence — <motif d'urgence>"
+ *   Autre    → motif libre
+ *   sinon    → le type d'absence tel quel
+ */
+function libelleMotif(demande) {
+  if (estType(demande.typeAbsence, 'Famille')) {
+    return estType(demande.famille, 'Autre')
+      ? `Famille — ${demande.motif || '—'}`
+      : (demande.famille || 'Famille');
+  }
+  if (estType(demande.typeAbsence, 'Urgence')) {
+    return demande.motifUrgence ? `Urgence — ${demande.motifUrgence}` : 'Urgence';
+  }
+  if (estType(demande.typeAbsence, 'Autre')) {
+    return demande.motif || '—';
+  }
+  return demande.typeAbsence || '—';
+}
+
 function ecrireColonne(sheet, row, colIndex, valeur) {
   sheet.getRange(row, colIndex).setValue(valeur);
 }
