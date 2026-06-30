@@ -30,6 +30,24 @@ function doGet(e) {
     theme   = getThemeEmail(nomOrg, demande.emailSuperieur);
   }
 
+  // ----------------------------------------------------------
+  // Contrôle d'identité pour les actions de validation.
+  // Le lien peut avoir été transféré à un tiers : on vérifie que
+  // l'utilisateur Google connecté est bien le validateur attendu
+  // pour CE niveau et CETTE demande.
+  // (Nécessite un déploiement "Anyone with Google account".)
+  // ----------------------------------------------------------
+  if (found && ['APPROUVE', 'REJETE', 'PRECISION'].indexOf(action) !== -1) {
+    const autorises = emailsAutorisesPourNiveau(demande, found.niveau);
+    const ident     = controlerIdentite(autorises);
+    if (!ident.ok) {
+      log('WARN', 'WebApp',
+        `Accès refusé (identité) — demande ${demande.idDemande} niveau ${found.niveau} ` +
+        `— connecté: "${ident.emailConnecte || 'aucun'}"`);
+      return page(pageAccesRefuse(ident.emailConnecte, autorises, nomOrg, theme), theme);
+    }
+  }
+
   if (action === 'APPROUVE') {
     const res = traiterDecision(token, 'APPROUVE', '');
     if (res.alreadyUsed) return page(pageDejaUtilise(res, nomOrg, theme), theme);
@@ -61,6 +79,16 @@ function doGet(e) {
     const dem = lireDemande(getSheetReponses(), fp.row);
     nomOrg = dem.nomOrg || CONFIG.NOM_ORG;
     theme  = getThemeEmail(nomOrg, dem.emailSuperieur);
+
+    // Contrôle d'identité : seul l'employé demandeur peut répondre.
+    const autorisesEmp = [(dem.emailEmploye || '').toString().trim().toLowerCase()].filter(Boolean);
+    const identEmp     = controlerIdentite(autorisesEmp);
+    if (!identEmp.ok) {
+      log('WARN', 'WebApp',
+        `Accès refusé (identité employé) — demande ${dem.idDemande} ` +
+        `— connecté: "${identEmp.emailConnecte || 'aucun'}"`);
+      return page(pageAccesRefuse(identEmp.emailConnecte, autorisesEmp, nomOrg, theme), theme);
+    }
 
     // Soumission du formulaire de réponse
     if (e.parameter.precisions !== undefined) {
@@ -282,6 +310,29 @@ function pageDejaUtilise(res, nomOrg, theme) {
       <div class="ico">📩</div>
       <div class="result-titre" style="color:${acc}">Réponse déjà envoyée</div>
       <p class="result-msg">${res.message}</p>
+      <p class="note-bas">Si vous pensez qu'il s'agit d'une erreur, contactez la direction.</p>
+    </div>
+    <div class="footer-page">${org} — Système automatisé de gestion des absences</div>`;
+}
+
+
+function pageAccesRefuse(emailConnecte, emailsAutorises, nomOrg, theme) {
+  const org = nomOrg || CONFIG.NOM_ORG;
+  const cibles = (emailsAutorises || []).join(', ');
+  const detailConnecte = emailConnecte
+    ? `Vous êtes connecté avec <strong>${emailConnecte}</strong>, qui n'est pas autorisé pour cette demande.`
+    : `Vous ne semblez pas connecté à un compte Google.`;
+  return `
+    <div class="header"><h1>⬡ ${org}</h1><div class="sous-titre">Système de gestion des absences</div></div>
+    <div class="result-box">
+      <div class="ico">🔒</div>
+      <div class="result-titre" style="color:#dc3545">Cette demande ne vous est pas attribuée</div>
+      <p class="result-msg">
+        ${detailConnecte}
+        <br><br>
+        Seul le validateur désigné peut traiter cette demande.
+        ${cibles ? `Veuillez vous connecter avec le compte Google attendu (<strong>${cibles}</strong>), puis rouvrir le lien.` : ''}
+      </p>
       <p class="note-bas">Si vous pensez qu'il s'agit d'une erreur, contactez la direction.</p>
     </div>
     <div class="footer-page">${org} — Système automatisé de gestion des absences</div>`;

@@ -17,7 +17,12 @@ This is a **Google Apps Script (GAS) web application** — an absence authorizat
 ### Deploying the Web App
 
 - **Apps Script → Deploy → New deployment**
-  - Type: **Web App**, Execute as: **Me**, Access: **Anyone**
+  - Type: **Web App**, Execute as: **Me**, Access: **Anyone with Google account**
+  - ⚠️ **Access must be "Anyone with Google account"** (not "Anyone"): the
+    web app verifies the connected user's email (`Session.getActiveUser()`)
+    to block forwarded validation links. With "Anyone", the email is empty
+    and every validator would be blocked. All validators must therefore have
+    a Google account matching their email in `Config.gs`.
 - Copy the generated URL into `WEBAPP_URL` in [Config.gs](Config.gs)
 
 ### Initial Setup (one-time)

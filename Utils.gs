@@ -207,6 +207,51 @@ function getPresidencePourSup(demande) {
   };
 }
 
+/**
+ * Retourne la liste des emails AUTORISÉS à agir à un niveau donné pour
+ * une demande précise. Sert au contrôle d'identité de la page web :
+ * seul le bon validateur (par son email Google) peut valider.
+ *
+ *   Superieur  → l'email du supérieur de CE département
+ *   Presidence → tous les co-présidents du groupe de CE département
+ *
+ * @return {string[]} emails en minuscules, sans doublon.
+ */
+function emailsAutorisesPourNiveau(demande, niveau) {
+  let emails = [];
+  if (niveau === 'Superieur') {
+    if (demande.emailSuperieur) emails = [demande.emailSuperieur];
+  } else if (niveau === 'Presidence') {
+    emails = (getPresidencePourSup(demande).emails) || [];
+  }
+  return emails
+    .map(e => (e || '').toString().trim().toLowerCase())
+    .filter(Boolean)
+    .filter((e, i, arr) => arr.indexOf(e) === i);
+}
+
+/**
+ * Vérifie que l'utilisateur Google connecté est bien habilité à agir
+ * sur cette demande, à ce niveau (ou, pour l'employé, qu'il est bien
+ * le demandeur).
+ *
+ * ⚠️ Nécessite un déploiement web app en "Anyone with Google account",
+ * sinon Session.getActiveUser().getEmail() renvoie une chaîne vide.
+ *
+ * @param {string[]} emailsAutorises  Emails légitimes (déjà en minuscules).
+ * @return {Object} { ok: boolean, emailConnecte: string }
+ */
+function controlerIdentite(emailsAutorises) {
+  let emailConnecte = '';
+  try {
+    emailConnecte = (Session.getActiveUser().getEmail() || '').trim().toLowerCase();
+  } catch (e) {
+    emailConnecte = '';
+  }
+  const ok = !!emailConnecte && emailsAutorises.indexOf(emailConnecte) !== -1;
+  return { ok, emailConnecte };
+}
+
 function formatDateHeure(date) {
   if (!date) return '—';
   try {
