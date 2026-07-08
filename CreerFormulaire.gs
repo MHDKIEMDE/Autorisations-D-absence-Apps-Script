@@ -38,7 +38,7 @@ function creerFormulaire() {
   // ----------------------------------------------------------
   const TITRE = "Formulaire de demande d'autorisation d'absence — " + CONFIG.NOM_ORG;
 
-  const departements = Object.keys(CONFIG.SERVICE_SUP_MAP || {});  // CpD, Digitale, Technique, SAF
+  const departements = Object.keys(CONFIG.SERVICE_SUP_MAP || {});  // Éditorial, Technique, Administration
 
   // Types d'absence — libellés EXACTS (alignés avec TYPES_SANS_DELAI)
   const typesAbsence = [

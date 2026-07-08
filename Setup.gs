@@ -282,8 +282,8 @@ function initialiserProjet() {
     'Initialisation réussie !\n\n' +
     'Prochaines étapes (tout dans Config.gs) :\n\n' +
     '1. Renseigner les vrais emails dans PERSONNEL :\n' +
-    '   presidents.PRES_GENERAL / PRES_SAF (un président par périmètre)\n' +
-    '   superieurs.SUP_CPD.email, etc.\n\n' +
+    '   presidents.PRES_GENERAL (président unique Agribusiness TV)\n' +
+    '   superieurs.SUP_EDITORIAL.email, etc.\n\n' +
     '2. Renseigner DRIVE_DOSSIER_RACINE et DRIVE_DOSSIER_TEMPLATE\n\n' +
     '3. Déployer la Web App puis copier l\'URL dans WEBAPP_URL\n\n' +
     '4. Tester avec une soumission formulaire.'
@@ -332,13 +332,20 @@ function installerTriggerValidationManuelle() {
 // Protection des colonnes + validation de données
 //
 // Carte des accès :
-//   A–P  (données formulaire)  → avertissement seul (lecture conseillée)
-//   Q    AVIS_SUP              → supérieurs uniquement  (verrouillage strict)
-//   R    AVIS_PRES             → Présidence uniquement  (verrouillage strict)
-//   S    COMMENTAIRE           → libre (aucune protection)
-//   T–AA (colonnes système)    → avertissement seul (réservé au script)
+//   A–N  (données formulaire)  → avertissement seul (lecture conseillée)
+//   P    AVIS_SUP              → PAR LIGNE : seul le supérieur de la
+//                                demande de cette ligne (strict)
+//   Q    AVIS_PRES             → PAR LIGNE : seul le président compétent
+//                                pour cette demande (strict)
+//   R    COMMENTAIRE           → libre (aucune protection)
+//   S–AC (colonnes système)    → avertissement seul (réservé au script)
 //
-// Dropdowns R, S, T : En attente / Approuvé / Rejeté
+// Les protections P/Q sont posées cellule par cellule à la création
+// de chaque demande (appliquerProtectionsLigne, Utils.gs) et mises à
+// jour à chaque étape du circuit. Cette fonction les RECONSTRUIT pour
+// toutes les lignes existantes (récupération / changement de config).
+//
+// Dropdown P et Q : En attente / En attente de précisions / Approuvé / Rejeté
 // ============================================================
 function configurerProtections(ss, sheet) {
   if (!ss)    ss    = SpreadsheetApp.openById(CONFIG.SHEET_REPONSES_ID);
@@ -355,16 +362,6 @@ function configurerProtections(ss, sheet) {
   // ----------------------------------------------------------
   sheet.getProtections(SpreadsheetApp.ProtectionType.RANGE).forEach(p => p.remove());
 
-  // Listes d'emails validateurs — lues depuis CONFIG.PERSONNEL
-  const sups       = (CONFIG.PERSONNEL || {}).superieurs || {};
-  const emailsSup  = Object.values(sups).map(s => s.email).filter(Boolean);
-  // Tous les présidents (un par périmètre)
-  const presidents = (CONFIG.PERSONNEL || {}).presidents || {};
-  const emailsPres = Object.values(presidents)
-    .map(p => p.email)
-    .filter(Boolean)
-    .filter((e, i, arr) => arr.indexOf(e) === i); // dédoublonnage
-
   // ----------------------------------------------------------
   // 1. Colonnes A–N : données formulaire — avertissement seul
   // ----------------------------------------------------------
@@ -375,29 +372,23 @@ function configurerProtections(ss, sheet) {
   Logger.log('[OK][Setup] Protection avertissement colonnes A-N configuree');
 
   // ----------------------------------------------------------
-  // 2. Colonne P — AVIS_SUP : supérieurs uniquement
+  // 2. Colonnes P et Q — protection PAR LIGNE
+  //    Pour chaque demande existante, la cellule d'avis n'est
+  //    éditable que par SON validateur (sup de la ligne / président
+  //    compétent). Les lignes clôturées sont verrouillées pour tous.
   // ----------------------------------------------------------
-  const pSup = sheet.getRange(2, CONFIG.COL.AVIS_SUP, lastRow - 1).protect();
-  pSup.setDescription('Réservé : Supérieurs hiérarchiques');
-  pSup.removeEditors(pSup.getEditors());
-  if (emailsSup.length > 0) {
-    pSup.addEditors(emailsSup);
-    Logger.log('[OK][Setup] Protection AVIS_SUP — ' + emailsSup.length + ' éditeur(s)');
-  } else {
-    Logger.log('[WARN][Setup] PERSONNEL.superieurs vide — col N verrouillée (propriétaire seulement). ' +
-               'Ajoutez les supérieurs dans Config.gs puis relancez "Reconfigurer les protections".');
+  const lastDataRow = sheet.getLastRow();
+  let nbLignesProtegees = 0;
+  if (lastDataRow >= 2) {
+    const ids = sheet.getRange(2, CONFIG.COL.ID_DEMANDE, lastDataRow - 1).getValues();
+    for (let i = 0; i < ids.length; i++) {
+      if (!ids[i][0].toString().trim()) continue;
+      appliquerProtectionsLigne(sheet, i + 2);
+      nbLignesProtegees++;
+    }
   }
-
-  // ----------------------------------------------------------
-  // 3. Colonne Q — AVIS_PRES : Présidence uniquement
-  // ----------------------------------------------------------
-  const pPres = sheet.getRange(2, CONFIG.COL.AVIS_PRES, lastRow - 1).protect();
-  pPres.setDescription('Réservé : Présidence');
-  pPres.removeEditors(pPres.getEditors());
-  if (emailsPres.length > 0) {
-    pPres.addEditors(emailsPres);
-    Logger.log('[OK][Setup] Protection AVIS_PRES — ' + emailsPres.join(', '));
-  }
+  Logger.log('[OK][Setup] Protections par ligne P/Q — ' +
+             nbLignesProtegees + ' demande(s) traitée(s)');
 
   // ----------------------------------------------------------
   // 4. Colonne R — COMMENTAIRE : aucune protection (libre)
@@ -435,10 +426,10 @@ function configurerProtections(ss, sheet) {
   try {
     SpreadsheetApp.getUi().alert(
       '✅ Protections configurées !\n\n' +
-      '• Colonne P (Avis Supérieur)  → ' + (emailsSup.length > 0 ? emailsSup.join(', ') : '⚠️ aucun supérieur défini') + '\n' +
-      '• Colonne Q (Avis Présidence) → ' + (emailsPres.length > 0 ? emailsPres.join(', ') : '⚠️ non défini') + '\n' +
+      '• Colonnes P/Q (Avis)         → protégées PAR LIGNE : seul le validateur\n' +
+      '  de chaque demande peut éditer sa cellule (' + nbLignesProtegees + ' demande(s) traitée(s))\n' +
       '• Colonne R (Commentaire)     → libre (accessible à tous)\n' +
-      '• Colonnes A–N et S–Z         → avertissement (réservé script/formulaire)\n\n' +
+      '• Colonnes A–N et S–AC        → avertissement (réservé script/formulaire)\n\n' +
       'Un menu déroulant (En attente / Approuvé / Rejeté) a été ajouté sur P et Q.'
     );
   } catch (e) {

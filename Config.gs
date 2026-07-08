@@ -1,6 +1,6 @@
 // ============================================================
 // Config.gs — Configuration complète du projet
-// Système d'autorisation d'absence — Massaka SAS
+// Système d'autorisation d'absence — Agribusiness TV
 // ============================================================
 // ⚠️  Seul fichier à modifier pour configurer le système.
 //     Toutes les informations personnel (noms, emails) sont
@@ -12,7 +12,7 @@ const CONFIG = {
   // ----------------------------------------------------------
   // 📋 Google Sheet des réponses formulaire
   // ----------------------------------------------------------
-  SHEET_REPONSES_ID: '15mRNfCTauJ2dG_lYIV5-63e-q-aCb0-Kg1yC7ZrACMc',
+  SHEET_REPONSES_ID: 'REMPLACER_PAR_ID_DU_SHEET_REPONSES',   // ← Sheet Agribusiness TV (⚠️ ne pas réutiliser celui de Massaka SAS)
   ONGLET_REPONSES:   'Autorisations',
 
   // ----------------------------------------------------------
@@ -71,35 +71,56 @@ const CONFIG = {
   // ----------------------------------------------------------
   // 👥  PERSONNEL — à modifier ici uniquement
   //
-  //     PRESIDENTS : UN président unique par périmètre (plus de
-  //       co-présidents). La clé (ex: 'PRES_SAF') est référencée
-  //       par SERVICE_SUP_MAP[département].presidence.
-  //         PRES_GENERAL → valide tout sauf SAF (CpD, Digitale, Technique…)
-  //         PRES_SAF     → valide SAF uniquement
-  //       PRES_GENERAL sert aussi de fallback si un département ne
-  //       pointe vers aucun président valide.
+  //     PRESIDENTS : Agribusiness TV a UN président unique.
+  //       La clé 'PRES_GENERAL' est référencée par
+  //       SERVICE_SUP_MAP[département].presidence et sert aussi de
+  //       fallback si un département ne pointe vers aucun président.
   //
   //     SUPERIEURS : un objet par supérieur.
-  //       clé  = identifiant interne (ex: 'SUP_CPD') — ne pas
+  //       clé  = identifiant interne (ex: 'SUP_EDITORIAL') — ne pas
   //              mettre l'email en clé, il est dans l'objet.
   //       email = adresse email du supérieur
   //       nom   = nom affiché dans les emails
   // ----------------------------------------------------------
   PERSONNEL: {
 
-    // Un président unique par périmètre — modifier ici qui valide quoi.
+    // Président unique Agribusiness TV — valide tous les départements.
     presidents: {
-      PRES_GENERAL: { email: 'president@massaka.com',     nom: 'Président Massaka SAS' },  // ← à remplacer
-      PRES_SAF:     { email: 'president.saf@massaka.com', nom: 'Président SAF'         }   // ← à remplacer
+      PRES_GENERAL: { email: 'president@agribusinesstv.com', nom: 'Président Agribusiness TV' }  // ← à remplacer
     },
 
+    // Contrôle croisé entre présidents : sans objet ici (président
+    // unique). Si le président soumet lui-même une demande, il reste
+    // son propre validateur (un WARN est journalisé). Pour activer un
+    // contrôle croisé, ajouter un second président ci-dessus puis :
+    //   presidentCroise: { PRES_GENERAL: 'PRES_AUTRE', ... }
+    presidentCroise: {},
+
     superieurs: {
-      SUP_CPD:        { email: 'superieur.cpd@massaka.com',        nom: 'Responsable CpD'          },  // ← à remplacer
-      SUP_DIGITALE:   { email: 'superieur.digitale@massaka.com',   nom: 'Responsable Digitale'     },  // ← à remplacer
-      SUP_TECHNIQUE:  { email: 'superieur.technique@massaka.com',  nom: 'Responsable Technique'    },  // ← à remplacer
+      SUP_EDITORIAL: { email: 'superieur.editorial@agribusinesstv.com', nom: 'Responsable Éditorial'      },  // ← à remplacer
+      SUP_TECHNIQUE: { email: 'superieur.technique@agribusinesstv.com', nom: 'Responsable Technique'      },  // ← à remplacer
+      SUP_ADMIN:     { email: 'superieur.admin@agribusinesstv.com',     nom: 'Responsable Administration' },  // ← à remplacer
     }
 
   },
+
+  // ----------------------------------------------------------
+  // 🛡️  Administrateurs — emails autorisés à éditer manuellement
+  //     n'importe quelle colonne d'avis (P/Q), sans être le
+  //     validateur désigné de la ligne. Pour maintenance / tests.
+  // ----------------------------------------------------------
+  ADMINS: [
+    'officie9@gmail.com'   // ← propriétaire du Sheet
+  ],
+
+  // ----------------------------------------------------------
+  // ✉️  Adresse expéditrice des emails (facultatif)
+  //     Vide  → les emails partent du compte qui exécute le script.
+  //     Sinon → doit être un ALIAS déjà validé sur ce compte
+  //             (Gmail → Paramètres → Comptes → « Envoyer en tant que »).
+  //     Une adresse non validée est ignorée par Gmail.
+  // ----------------------------------------------------------
+  EMAIL_EXPEDITEUR: '',
 
   // ----------------------------------------------------------
   // 🏢  Mapping Département → Supérieur + Circuit + Présidence
@@ -115,34 +136,33 @@ const CONFIG = {
   //                  (fallback : PRES_GENERAL)
   // ----------------------------------------------------------
   SERVICE_SUP_MAP: {
-    'CpD':       { sup: 'SUP_CPD',       workflow: 'SUP_PRES', presidence: 'PRES_GENERAL', nomOrg: 'Massaka SAS' },
-    'Digitale':  { sup: 'SUP_DIGITALE',  workflow: 'SUP_PRES', presidence: 'PRES_GENERAL', nomOrg: 'Massaka SAS' },
-    'Technique': { sup: 'SUP_TECHNIQUE', workflow: 'SUP_PRES', presidence: 'PRES_GENERAL', nomOrg: 'Massaka SAS' },
-    'SAF':       { sup: null,            workflow: 'PRES',     presidence: 'PRES_SAF',     nomOrg: 'Massaka SAS' },
+    'Éditorial':      { sup: 'SUP_EDITORIAL', workflow: 'SUP_PRES', presidence: 'PRES_GENERAL', nomOrg: 'Agribusiness TV' },
+    'Technique':      { sup: 'SUP_TECHNIQUE', workflow: 'SUP_PRES', presidence: 'PRES_GENERAL', nomOrg: 'Agribusiness TV' },
+    'Administration': { sup: 'SUP_ADMIN',     workflow: 'SUP_PRES', presidence: 'PRES_GENERAL', nomOrg: 'Agribusiness TV' },
   },
 
   // ----------------------------------------------------------
-  // 🎨  Thème visuel Massaka SAS
+  // 🎨  Thème visuel Agribusiness TV
   //     (couleurs des emails HTML — ne pas modifier sauf branding)
   // ----------------------------------------------------------
   THEME: {
-    couleur:                   '#000000',
-    couleurBadge:              '#008080',
-    couleurTexteBadge:         '#ffffff',
-    couleurAccent:             '#005555',
+    couleur:                   '#015438',
+    couleurBadge:              '#7ED957',
+    couleurTexteBadge:         '#1a3a1a',
+    couleurAccent:             '#015438',
     couleurTexte:              '#ffffff',
-    couleurFondMotif:          '#f0f9fc',
-    couleurFondDuree:          '#fff8e6',
-    couleurLabelDuree:         '#856404',
+    couleurFondMotif:          '#f0faf3',
+    couleurFondDuree:          '#f5ffe8',
+    couleurLabelDuree:         '#3a6604',
     couleurBoutonRejet:          '#dc3545',
-    couleurBoutonApprouver:      '#008080',
-    couleurTexteBoutonApprouver: '#ffffff',
-    couleurFondTableau:          '#f0f9fc',
-    couleurTexteTableau:         '#000000',
-    couleurLabelOption1:         '#000000',
-    couleurBoutonTableau:        '#008080',
-    couleurTexteBoutonTableau:   '#ffffff',
-    police:                      "'Montserrat', 'Segoe UI', Arial, sans-serif"
+    couleurBoutonApprouver:      '#7ED957',
+    couleurTexteBoutonApprouver: '#000000',
+    couleurFondTableau:          '#015438',
+    couleurTexteTableau:         '#ffffff',
+    couleurLabelOption1:         '#ffffff',
+    couleurBoutonTableau:        '#7ED957',
+    couleurTexteBoutonTableau:   '#000000',
+    police:                      "'Proxima Nova', 'Segoe UI', Arial, sans-serif"
   },
 
   // ----------------------------------------------------------
@@ -163,7 +183,7 @@ const CONFIG = {
   // ----------------------------------------------------------
   // 🏢  Organisation
   // ----------------------------------------------------------
-  NOM_ORG: 'Massaka SAS',
+  NOM_ORG: 'Agribusiness TV',
 
   // ----------------------------------------------------------
   // 📊  Index des colonnes (base 1 — A=1)
@@ -194,7 +214,7 @@ const CONFIG = {
     AVIS_SUP:       16,  // P  — Avis supérieur
     AVIS_PRES:      17,  // Q  — Avis Présidence
     COMMENTAIRE:    18,  // R  — Motif de rejet / commentaire
-    ID_DEMANDE:     19,  // S  — MSK-2026-0001
+    ID_DEMANDE:     19,  // S  — ABT-2026-0001
     TOKEN_SUP:      20,  // T  — Token supérieur
     TOKEN_PRES:     21,  // U  — Token Présidence
     STATUT_GLOBAL:  22,  // V  — Statut global

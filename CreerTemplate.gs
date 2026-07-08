@@ -25,9 +25,9 @@ function creerTemplateDoc() {
   // ----------------------------------------------------------
   // Palette
   // ----------------------------------------------------------
-  const NOIR    = '#000000';
-  const TEAL    = '#005555';
-  const TEAL_LT = '#E6F2F2';   // teal très clair pour labels
+  const NOIR    = '#015438';   // vert foncé Agribusiness TV (rôle "noir" du design)
+  const TEAL    = '#015438';   // vert foncé — accents, bordures, labels
+  const TEAL_LT = '#E9F7EE';   // vert très clair pour labels
   const BLANC   = '#FFFFFF';
   const GRIS    = '#F5F5F5';   // fond labels neutres
   const BORDER  = '#CCCCCC';
@@ -42,7 +42,7 @@ function creerTemplateDoc() {
   const pLogo = body.appendParagraph('');
   pLogo.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
   pLogo.setSpacingAfter(2);
-  const tLogo = pLogo.appendText('▲ massaka');
+  const tLogo = pLogo.appendText('▶ agribusiness tv');
   tLogo.setFontFamily('Montserrat'); tLogo.setFontSize(20);
   tLogo.setBold(true); tLogo.setForegroundColor(NOIR);
 
@@ -50,7 +50,7 @@ function creerTemplateDoc() {
   const pOrg = body.appendParagraph('');
   pOrg.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
   pOrg.setSpacingAfter(8);
-  const tOrg = pOrg.appendText('Massaka SAS');
+  const tOrg = pOrg.appendText('Agribusiness TV');
   tOrg.setFontFamily('Montserrat'); tOrg.setFontSize(9);
   tOrg.setBold(false); tOrg.setForegroundColor(GRIS_T);
   tOrg.setItalic(true);

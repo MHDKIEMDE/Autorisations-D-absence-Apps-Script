@@ -31,22 +31,13 @@ function doGet(e) {
   }
 
   // ----------------------------------------------------------
-  // Contrôle d'identité pour les actions de validation.
-  // Le lien peut avoir été transféré à un tiers : on vérifie que
-  // l'utilisateur Google connecté est bien le validateur attendu
-  // pour CE niveau et CETTE demande.
-  // (Nécessite un déploiement "Anyone with Google account".)
+  // Sécurité par TOKEN uniquement (pas de contrôle par compte Google).
+  // Le déploiement est en "Execute as: Me" + "Anyone" pour éviter tout
+  // écran d'autorisation aux validateurs et à l'employé (comptes mixtes
+  // Gmail/Workspace). Le token UUID à usage unique du lien fait foi :
+  // seul celui qui a reçu l'email le possède, et il est invalidé après
+  // usage. C'est le garant d'authenticité pour toutes les actions.
   // ----------------------------------------------------------
-  if (found && ['APPROUVE', 'REJETE', 'PRECISION'].indexOf(action) !== -1) {
-    const autorises = emailsAutorisesPourNiveau(demande, found.niveau);
-    const ident     = controlerIdentite(autorises);
-    if (!ident.ok) {
-      log('WARN', 'WebApp',
-        `Accès refusé (identité) — demande ${demande.idDemande} niveau ${found.niveau} ` +
-        `— connecté: "${ident.emailConnecte || 'aucun'}"`);
-      return page(pageAccesRefuse(ident.emailConnecte, autorises, nomOrg, theme), theme);
-    }
-  }
 
   if (action === 'APPROUVE') {
     const res = traiterDecision(token, 'APPROUVE', '');
@@ -80,15 +71,11 @@ function doGet(e) {
     nomOrg = dem.nomOrg || CONFIG.NOM_ORG;
     theme  = getThemeEmail(nomOrg, dem.emailSuperieur);
 
-    // Contrôle d'identité : seul l'employé demandeur peut répondre.
-    const autorisesEmp = [(dem.emailEmploye || '').toString().trim().toLowerCase()].filter(Boolean);
-    const identEmp     = controlerIdentite(autorisesEmp);
-    if (!identEmp.ok) {
-      log('WARN', 'WebApp',
-        `Accès refusé (identité employé) — demande ${dem.idDemande} ` +
-        `— connecté: "${identEmp.emailConnecte || 'aucun'}"`);
-      return page(pageAccesRefuse(identEmp.emailConnecte, autorisesEmp, nomOrg, theme), theme);
-    }
+    // Pas de contrôle d'identité par compte Google ici : l'employé n'est
+    // pas un validateur et peut utiliser un compte quelconque (Gmail perso,
+    // etc.). Le token de précision (UUID secret dans le lien) fait foi —
+    // seul celui qui a reçu l'email le possède. Cela évite de bloquer
+    // l'employé derrière un écran "compte non attribué".
 
     // Soumission du formulaire de réponse
     if (e.parameter.precisions !== undefined) {
@@ -215,7 +202,7 @@ function pageFormulaire(demande, token, niveau, nomOrg) {
       <div class="card">
         <h2>Rejeter la demande</h2>
         <div class="zone-rejet">
-          <p class="alerte-rejet">Le motif est obligatoire — il sera communiqué à l'employé.</p>
+          <p class="alerte-rejet">Le motif est obligatoire — il sera communiqué à ${demande.prenom}.</p>
           <form method="GET" action="${CONFIG.WEBAPP_URL}" onsubmit="return validerMotif()">
             <input type="hidden" name="token"  value="${token}">
             <input type="hidden" name="action" value="REJETE">
@@ -230,13 +217,13 @@ function pageFormulaire(demande, token, niveau, nomOrg) {
         <div class="zone-precision">
           <p class="alerte-precision">
             Besoin d'explications avant de décider ? Envoyez une demande de précisions
-            à l'employé. Vous recevrez un nouvel email dès qu'il aura répondu.
+            à ${demande.prenom}. Vous recevrez un nouvel email dès sa réponse.
           </p>
-          <form method="GET" action="${CONFIG.WEBAPP_URL}">
+          <form method="GET" action="${CONFIG.WEBAPP_URL}" onsubmit="return validerPrecision()">
             <input type="hidden" name="token"  value="${token}">
             <input type="hidden" name="action" value="PRECISION">
             <textarea name="message" id="msgPrecision" placeholder="Que souhaitez-vous savoir ? (facultatif)" maxlength="800"></textarea>
-            <button type="submit" class="btn btn-detail" onclick="this.disabled=true;this.form.submit();">DEMANDER PLUS DE DÉTAILS</button>
+            <button type="submit" class="btn btn-detail">DEMANDER PLUS DE DÉTAILS</button>
           </form>
         </div>
       </div>
@@ -249,6 +236,12 @@ function pageFormulaire(demande, token, niveau, nomOrg) {
         if (!m) { alert('Veuillez saisir un motif de rejet.'); return false; }
         var btn = document.querySelector('.btn-ko');
         btn.disabled = true; btn.textContent = 'Envoi en cours...';
+        return true;
+      }
+      function validerPrecision() {
+        var btn = document.querySelector('.btn-detail');
+        btn.textContent = 'Envoi en cours...';
+        setTimeout(function () { btn.disabled = true; }, 0);
         return true;
       }
     </script>`;

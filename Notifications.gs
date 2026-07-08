@@ -1,7 +1,26 @@
 // ============================================================
 // Notifications.gs — Emails HTML
-// Système d'autorisation d'absence — Massaka SAS
+// Système d'autorisation d'absence — Agribusiness TV
 // ============================================================
+
+/**
+ * Construit les options d'un GmailApp.sendEmail.
+ *   - name : nom d'expéditeur affiché (nom de l'organisation)
+ *   - from : adresse expéditrice (si CONFIG.EMAIL_EXPEDITEUR est renseigné)
+ *
+ * ⚠️ Gmail n'accepte "from" que si l'adresse est un ALIAS déjà validé sur
+ * le compte qui exécute le script (Paramètres Gmail → Comptes → « Envoyer
+ * des e-mails en tant que »). Sinon l'email part de l'adresse par défaut.
+ *
+ * @param {string} nomOrg  Nom d'organisation affiché comme expéditeur.
+ * @param {Object} extra   Champs supplémentaires (ex: { htmlBody }).
+ */
+function optionsMail(nomOrg, extra) {
+  const opts = Object.assign({ name: nomOrg || CONFIG.NOM_ORG }, extra || {});
+  const expediteur = (CONFIG.EMAIL_EXPEDITEUR || '').toString().trim();
+  if (expediteur) opts.from = expediteur;
+  return opts;
+}
 
 /**
  * Retourne le thème visuel — toujours depuis CONFIG.THEME (une seule org).
@@ -185,7 +204,7 @@ function envoyerAccuseReceptionEmploye(demande) {
     demande.emailEmploye,
     `${nomOrg} – Demande reçue – ${demande.idDemande}`,
     '',
-    { htmlBody: htmlBody, name: nomOrg }
+    optionsMail(nomOrg, { htmlBody: htmlBody })
   );
 
   log('OK', 'Notifications', `Accusé réception → ${demande.emailEmploye} | org=${nomOrg} | ref=${demande.idDemande}`);
@@ -231,7 +250,7 @@ function envoyerNotificationValidateur(demande, niveau, token, estRelance, preci
   const blocPrecisions = (precisions && precisions.trim()) ? `
     <div style="background:#e8f4ea;border-left:4px solid #2e7d32;border-radius:6px;padding:12px 16px;margin-bottom:16px">
       <div style="font-size:11px;font-weight:800;color:#2e7d32;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">
-        💬 Précisions apportées par l'employé
+        💬 Précisions apportées par ${demande.prenom}
       </div>
       <div style="font-size:14px;color:#1b3a1f;line-height:1.6;white-space:pre-wrap">${precisions.trim()}</div>
     </div>
@@ -261,6 +280,11 @@ function envoyerNotificationValidateur(demande, niveau, token, estRelance, preci
             Une demande d'autorisation d'absence nécessite votre validation
             en tant que <strong>${labelNiveau}</strong>.
           </p>
+          <p style="font-size:13px;color:#666666;line-height:1.6;margin-top:6px">
+            Trois réponses possibles : <strong>✅ Approuver</strong>,
+            <strong>❌ Rejeter</strong> (motif obligatoire) ou
+            <strong>💬 Demander des précisions</strong> à ${demande.prenom} avant de vous prononcer.
+          </p>
           ${blocRecapitulatif(demande, theme)}
           <div class="section-title">Votre décision</div>
 
@@ -279,8 +303,11 @@ function envoyerNotificationValidateur(demande, niveau, token, estRelance, preci
               </tr>
             </table>
             <p style="font-size:13px;color:${theme.couleurTexteTableau || '#555555'};margin-top:12px;line-height:1.6">
-              Trouvez la ligne <strong>${demande.idDemande}</strong>, saisissez votre motif en colonne P si vous rejetez,
-              puis choisissez <strong>Approuvé</strong> ou <strong>Rejeté</strong> dans la colonne qui vous correspond.
+              Trouvez la ligne <strong>${demande.idDemande}</strong>, puis choisissez
+              <strong>Approuvé</strong>, <strong>Rejeté</strong> ou
+              <strong>En attente de précisions</strong> dans la colonne qui vous correspond.
+              Pour un rejet ou une demande de précisions, saisissez d'abord votre motif
+              ou votre question en colonne <strong>R (Commentaires)</strong>.
             </p>
           </div>
 
@@ -298,7 +325,7 @@ function envoyerNotificationValidateur(demande, niveau, token, estRelance, preci
                 </td>
               </tr>
             </table>
-            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:8px">
               <tr>
                 <td bgcolor="${theme.couleurBoutonRejet || '#dc3545'}" style="background:${theme.couleurBoutonRejet || '#dc3545'};border-radius:6px">
                   <a href="${lienRejeter}"
@@ -308,8 +335,20 @@ function envoyerNotificationValidateur(demande, niveau, token, estRelance, preci
                 </td>
               </tr>
             </table>
+            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td bgcolor="#ff9800" style="background:#ff9800;border-radius:6px">
+                  <a href="${lienRejeter}"
+                     style="display:block;text-align:center;padding:12px;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px">
+                    💬 DEMANDER PLUS DE DÉTAILS
+                  </a>
+                </td>
+              </tr>
+            </table>
             <p style="font-size:12px;color:#999999;margin-top:10px;line-height:1.5">
               Ces liens sont à usage unique. Le premier validateur qui clique clôture la décision.
+              « Demander plus de détails » ne clôture pas la demande : ${demande.prenom} répond,
+              puis vous recevez un nouvel email pour décider.
             </p>
           </div>
           <p class="note">
@@ -325,7 +364,7 @@ function envoyerNotificationValidateur(demande, niveau, token, estRelance, preci
       to,
       `${estRelance ? 'Relance – ' : ''}${nomOrg} – À valider – ${demande.idDemande} – ${demande.prenom} ${demande.nom}`,
       '',
-      { htmlBody: htmlBody, name: nomOrg }
+      optionsMail(nomOrg, { htmlBody: htmlBody })
     );
 
     log('OK', 'Notifications', `Validateur notifié → ${to} | niveau=${niveau} | org=${nomOrg} | ref=${demande.idDemande}`);
@@ -395,7 +434,7 @@ function envoyerConfirmationFinaleEmploye(demande, decision, motif) {
     </div></body></html>
   `;
 
-  const options = { htmlBody: htmlBody, name: nomOrg };
+  const options = optionsMail(nomOrg, { htmlBody: htmlBody });
 
   if (estApprouve && demande.driveDocID) {
     try {
@@ -470,7 +509,7 @@ function envoyerDemandePrecision(demande, niveau, message, lienReponse) {
     </div></body></html>
   `;
 
-  GmailApp.sendEmail(demande.emailEmploye, sujet, '', { htmlBody: htmlBody, name: nomOrg });
+  GmailApp.sendEmail(demande.emailEmploye, sujet, '', optionsMail(nomOrg, { htmlBody: htmlBody }));
   log('OK', 'Notifications',
     `Demande de précisions → ${demande.emailEmploye} | niveau=${niveau} | ref=${demande.idDemande}`);
 }

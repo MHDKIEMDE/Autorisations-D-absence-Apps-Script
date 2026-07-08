@@ -5,10 +5,10 @@
 //   Racine/
 //     Accepté/
 //       [Nom Prenom]/               ← dossier de la personne (réutilisé)
-//         [MSK-2026-0001 - Nom Prenom].pdf ← PDF figé de la demande
+//         [ABT-2026-0001 - Nom Prenom].pdf ← PDF figé de la demande
 //
 //   Archive ADMIN (DRIVE_DOSSIER_ARCHIVE)/
-//     [MSK-2026-0001 - Nom Prenom].pdf ← copie PDF, accès admins uniquement
+//     [ABT-2026-0001 - Nom Prenom].pdf ← copie PDF, accès admins uniquement
 //
 // Cycle de vie d'une demande approuvée :
 //   1. creerDossierEtDoc()  → copie le template en Google Doc et le remplit

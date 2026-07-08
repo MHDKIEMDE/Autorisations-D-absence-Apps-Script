@@ -67,7 +67,7 @@ function renvoyerValidationManuelle() {
   const ui  = SpreadsheetApp.getUi();
   const rep = ui.prompt(
     'Renvoyer la validation',
-    'Entrez la référence de la demande (ex: MSK-2026-0001) :',
+    'Entrez la référence de la demande (ex: ABT-2026-0001) :',
     ui.ButtonSet.OK_CANCEL
   );
   if (rep.getSelectedButton() !== ui.Button.OK) return;
@@ -89,7 +89,7 @@ function renvoyerValidationManuelle() {
   }
 
   if (targetRow < 0) {
-    ui.alert('Référence introuvable : ' + ref + '\nVérifiez le format (ex: MSK-2026-0001).');
+    ui.alert('Référence introuvable : ' + ref + '\nVérifiez le format (ex: ABT-2026-0001).');
     return;
   }
 
@@ -132,7 +132,7 @@ function reprendreTraitement() {
   const ui  = SpreadsheetApp.getUi();
   const rep = ui.prompt(
     'Reprendre un traitement échoué',
-    'Entrez le numéro de ligne (ex: 5) ou la référence (ex: MSK-2026-0001) :',
+    'Entrez le numéro de ligne (ex: 5) ou la référence (ex: ABT-2026-0001) :',
     ui.ButtonSet.OK_CANCEL
   );
   if (rep.getSelectedButton() !== ui.Button.OK) return;

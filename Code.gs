@@ -1,6 +1,6 @@
 // ============================================================
 // Code.gs — Trigger onFormSubmit + rejet automatique 72h
-// Système d'autorisation d'absence — Massaka SAS
+// Système d'autorisation d'absence — Agribusiness TV
 // ============================================================
 
 function onFormSubmit(e) {
@@ -75,7 +75,7 @@ function onFormSubmit(e) {
     // ----------------------------------------------------------
     const service       = sheet.getRange(row, CONFIG.COL.DEPARTEMENT).getValue().toString().trim();
     const serviceConfig = (CONFIG.SERVICE_SUP_MAP || {})[service] || {};
-    // sup est une clé interne (ex: 'SUP_CPD') — résolution de l'email via PERSONNEL
+    // sup est une clé interne (ex: 'SUP_EDITORIAL') — résolution de l'email via PERSONNEL
     const emailSup      = getEmailSuperieur(serviceConfig.sup);
     const workflow      = serviceConfig.workflow || 'PRES';
 
@@ -138,6 +138,8 @@ function onFormSubmit(e) {
         ecrireColonne(sheet, row, CONFIG.COL.STATUT_GLOBAL, 'Rejeté automatiquement');
         ecrireColonne(sheet, row, CONFIG.COL.DATE_CLOTURE,  new Date());
 
+        appliquerProtectionsLigne(sheet, row);   // verrouille P et Q (demande close)
+
         envoyerConfirmationFinaleEmploye(
           lireDemande(sheet, row),
           'Rejeté',
@@ -164,9 +166,25 @@ function onFormSubmit(e) {
     //
     //    SUP_PRES : Supérieur → Présidence
     //    PRES     : Présidence directement
+    //
+    //    Anti auto-validation : si le demandeur EST lui-même le
+    //    supérieur du service (ex: le responsable Éditorial demande une
+    //    absence), on saute le niveau Supérieur — il ne peut pas
+    //    s'auto-approuver — et on démarre directement à la Présidence.
     // ----------------------------------------------------------
+    const emailEmploye = sheet.getRange(row, CONFIG.COL.EMAIL_EMPLOYE)
+                              .getValue().toString().trim().toLowerCase();
+    const demandeurEstSup = !!emailSup &&
+      emailEmploye === emailSup.toString().trim().toLowerCase();
+
+    if (demandeurEstSup) {
+      log('INFO', 'onFormSubmit',
+        `Demandeur "${emailEmploye}" = supérieur du service "${service}" — ` +
+        `niveau Supérieur sauté, envoi direct à la Présidence, ligne ${row}`);
+    }
+
     let premierNiveau;
-    if (workflow === 'PRES') {
+    if (workflow === 'PRES' || demandeurEstSup) {
       ecrireColonne(sheet, row, CONFIG.COL.AVIS_SUP,  'Approuvé');
       ecrireColonne(sheet, row, CONFIG.COL.TOKEN_SUP, 'INVALIDE_' + tokenSup);
       ecrireColonne(sheet, row, CONFIG.COL.AVIS_PRES, 'En attente');
@@ -178,6 +196,10 @@ function onFormSubmit(e) {
       premierNiveau = 'Superieur';
     }
     ecrireColonne(sheet, row, CONFIG.COL.STATUT_GLOBAL, 'En cours');
+
+    // Protection par ligne : seul le validateur de CETTE demande peut
+    // éditer sa cellule d'avis (P = sup du département, Q = président)
+    appliquerProtectionsLigne(sheet, row);
 
     // ----------------------------------------------------------
     // 6. Notifier le premier validateur
