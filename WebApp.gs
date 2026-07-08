@@ -167,7 +167,7 @@ function pageFormulaire(demande, token, niveau, nomOrg) {
   const org = nomOrg || CONFIG.NOM_ORG;
   const labelNiveau = {
     'Superieur':  'Supérieur hiérarchique',
-    'Presidence': 'Présidence'
+    'Presidence': 'Gérant'
   }[niveau];
 
   const motif = libelleMotif(demande);

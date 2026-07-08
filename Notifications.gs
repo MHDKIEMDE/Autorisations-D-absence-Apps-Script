@@ -157,8 +157,8 @@ function envoyerAccuseReceptionEmploye(demande) {
   const workflow = ((CONFIG.SERVICE_SUP_MAP || {})[demande.departement] || {}).workflow || 'PRES';
 
   const texteEtapes = {
-    'SUP_PRES': 'Votre demande sera examinée successivement par votre supérieur hiérarchique, puis par la présidence.',
-    'PRES':     'Votre demande sera examinée directement par la présidence.'
+    'SUP_PRES': 'Votre demande sera examinée successivement par votre supérieur hiérarchique, puis par le Gérant.',
+    'PRES':     'Votre demande sera examinée directement par le Gérant.'
   }[workflow] || 'Votre demande est en cours de traitement.';
 
   const htmlBody = `
@@ -226,7 +226,7 @@ function envoyerNotificationValidateur(demande, niveau, token, estRelance, preci
     destinations.push({ to: demande.emailSuperieur, nom: nomSup });
 
   } else if (niveau === 'Presidence') {
-    labelNiveau = 'Présidence';
+    labelNiveau = 'Gérant';
     const pres   = getPresidencePourSup(demande);
     const emails = pres.emails || [];
     const noms   = pres.noms   || [];
@@ -458,7 +458,7 @@ function envoyerConfirmationFinaleEmploye(demande, decision, motif) {
 function envoyerDemandePrecision(demande, niveau, message, lienReponse) {
   const nomOrg = demande.nomOrg || CONFIG.NOM_ORG;
   const theme  = getThemeEmail(nomOrg, demande.emailSuperieur);
-  const labelNiveau = (niveau === 'Superieur') ? 'votre supérieur hiérarchique' : 'la Présidence';
+  const labelNiveau = (niveau === 'Superieur') ? 'votre supérieur hiérarchique' : 'le Gérant';
 
   const sujet = `${nomOrg} – Précisions demandées – ${demande.idDemande}`;
 

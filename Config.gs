@@ -86,7 +86,7 @@ const CONFIG = {
 
     // Président unique Agribusiness TV — valide tous les départements.
     presidents: {
-      PRES_GENERAL: { email: 'president@agribusinesstv.com', nom: 'Président Agribusiness TV' }  // ← à remplacer
+      PRES_GENERAL: { email: 'president@agribusinesstv.com', nom: 'Gérant d\'Agribusiness TV' }  // ← à remplacer
     },
 
     // Contrôle croisé entre présidents : sans objet ici (président

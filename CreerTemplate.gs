@@ -114,7 +114,7 @@ function creerTemplateDoc() {
 
   const tValid = body.appendTable([
     ['Avis du supérieur hiérarchique', '{{AVIS_SUPERIEUR}}'],
-    ['Décision de la Présidence',      '{{AVIS_PRESIDENCE}}'],
+    ['Décision du Gérant',             '{{AVIS_PRESIDENCE}}'],
   ]);
   _styleTableau(tValid, TEAL, BLANC, TEAL, BLANC, TEXTE, 200);
   // Forcer le texte des valeurs en gras + taille plus grande

@@ -45,7 +45,7 @@ function traiterDecision(token, decision, motif) {
   const statutActuel = sheet.getRange(row, colStatut).getValue();
 
   if (statutActuel !== 'En attente') {
-    const labelNiveau = niveau === 'Superieur' ? 'Supérieur hiérarchique' : 'Présidence';
+    const labelNiveau = niveau === 'Superieur' ? 'Supérieur hiérarchique' : 'Gérant';
     log('WARN', 'WebApp',
       `Tentative d'accès sur lien déjà utilisé - demande ${demande.idDemande}`);
     return {
