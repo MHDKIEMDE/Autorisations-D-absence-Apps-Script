@@ -97,9 +97,8 @@ const CONFIG = {
     presidentCroise: {},
 
     superieurs: {
-      SUP_EDITORIAL: { email: 'superieur.editorial@agribusinesstv.com', nom: 'Responsable Éditorial'      },  // ← à remplacer
-      SUP_TECHNIQUE: { email: 'superieur.technique@agribusinesstv.com', nom: 'Responsable Technique'      },  // ← à remplacer
-      SUP_ADMIN:     { email: 'superieur.admin@agribusinesstv.com',     nom: 'Responsable Administration' },  // ← à remplacer
+      SUP_EDITORIAL: { email: 'superieur.editorial@agribusinesstv.com', nom: 'Responsable Éditorial' },  // ← à remplacer
+      SUP_TECHNIQUE: { email: 'superieur.technique@agribusinesstv.com', nom: 'Responsable Technique' },  // ← à remplacer
     }
 
   },
@@ -138,7 +137,7 @@ const CONFIG = {
   SERVICE_SUP_MAP: {
     'Éditorial':      { sup: 'SUP_EDITORIAL', workflow: 'SUP_PRES', presidence: 'PRES_GENERAL', nomOrg: 'Agribusiness TV' },
     'Technique':      { sup: 'SUP_TECHNIQUE', workflow: 'SUP_PRES', presidence: 'PRES_GENERAL', nomOrg: 'Agribusiness TV' },
-    'Administration': { sup: 'SUP_ADMIN',     workflow: 'SUP_PRES', presidence: 'PRES_GENERAL', nomOrg: 'Agribusiness TV' },
+    'Administration': { sup: null,            workflow: 'PRES',     presidence: 'PRES_GENERAL', nomOrg: 'Agribusiness TV' },
   },
 
   // ----------------------------------------------------------

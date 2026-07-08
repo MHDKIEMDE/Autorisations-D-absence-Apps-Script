@@ -173,9 +173,8 @@ PERSONNEL: {
   },
   presidentCroise: {},      // sans objet : président unique (voir § 10)
   superieurs: {
-    SUP_EDITORIAL: { email: 'superieur.editorial@…', nom: 'Responsable Éditorial'      },
-    SUP_TECHNIQUE: { email: 'superieur.technique@…', nom: 'Responsable Technique'      },
-    SUP_ADMIN:     { email: 'superieur.admin@…',     nom: 'Responsable Administration' }
+    SUP_EDITORIAL: { email: 'superieur.editorial@…', nom: 'Responsable Éditorial' },
+    SUP_TECHNIQUE: { email: 'superieur.technique@…', nom: 'Responsable Technique' }
   }
 },
 ```
@@ -200,7 +199,7 @@ Clé de voûte. Chaque département du formulaire doit y figurer **exactement**
 SERVICE_SUP_MAP: {
   'Éditorial':      { sup: 'SUP_EDITORIAL', workflow: 'SUP_PRES', presidence: 'PRES_GENERAL', nomOrg: 'Agribusiness TV' },
   'Technique':      { sup: 'SUP_TECHNIQUE', workflow: 'SUP_PRES', presidence: 'PRES_GENERAL', nomOrg: 'Agribusiness TV' },
-  'Administration': { sup: 'SUP_ADMIN',     workflow: 'SUP_PRES', presidence: 'PRES_GENERAL', nomOrg: 'Agribusiness TV' },
+  'Administration': { sup: null,            workflow: 'PRES',     presidence: 'PRES_GENERAL', nomOrg: 'Agribusiness TV' },
 },
 ```
 
@@ -288,8 +287,8 @@ Dossier Template/
 
 | Workflow | Circuit | Usage typique |
 |----------|---------|---------------|
-| `SUP_PRES` | Supérieur → Présidence | Départements avec supérieur (Éditorial, Technique, Administration) |
-| `PRES` | Présidence directement | Département sans supérieur (aucun actuellement — mettre `sup: null`) |
+| `SUP_PRES` | Supérieur → Présidence | Départements avec supérieur (Éditorial, Technique) |
+| `PRES` | Présidence directement | Département sans supérieur (Administration) |
 
 Un **président unique** (`PRES_GENERAL`) : il valide ou
 rejette seul, sa décision clôture la demande. Les niveaux sautés sont marqués
