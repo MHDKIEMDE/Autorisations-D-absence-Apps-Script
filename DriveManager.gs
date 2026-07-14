@@ -1,5 +1,5 @@
 // ============================================================
-// DriveManager.gs — Gestion Google Drive
+// DriveManager.gs - Gestion Google Drive
 // ============================================================
 // Structure des dossiers Drive :
 //   Racine/
@@ -61,7 +61,7 @@ function creerDossierEtDoc(demande) {
   const templateFichier = templateIt.next();
   if (templateIt.hasNext()) {
     log('WARN', 'DriveManager',
-      `DRIVE_DOSSIER_TEMPLATE contient plusieurs fichiers — ` +
+      `DRIVE_DOSSIER_TEMPLATE contient plusieurs fichiers - ` +
       `seul "${templateFichier.getName()}" est utilisé. ` +
       `Supprimez les autres fichiers du dossier template pour éviter toute confusion.`);
   }
@@ -133,7 +133,7 @@ function mettreAJourDoc(demande) {
     const body = doc.getBody();
 
     body.replaceText('{{AVIS_SUPERIEUR}}',  demande.avisSuperieur || 'En attente');
-    body.replaceText('{{AVIS_PRESIDENCE}}', demande.avisPres      || '—');
+    body.replaceText('{{AVIS_PRESIDENCE}}', demande.avisPres      || '-');
     body.replaceText('{{COMMENTAIRE}}',     demande.commentaire   || '');
 
     if (demande.dateCloture) {
@@ -194,7 +194,7 @@ function finaliserEnPDF(sheet, row, demande) {
       }
     } else {
       log('WARN', 'DriveManager',
-        `DRIVE_DOSSIER_ARCHIVE non configuré — pas de copie archive pour ${demande.idDemande}`);
+        `DRIVE_DOSSIER_ARCHIVE non configuré - pas de copie archive pour ${demande.idDemande}`);
     }
 
     // 3. Supprimer le Google Doc original (corbeille)

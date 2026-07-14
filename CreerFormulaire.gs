@@ -1,5 +1,5 @@
 // ============================================================
-// CreerFormulaire.gs — Génère le Google Form des demandes
+// CreerFormulaire.gs - Génère le Google Form des demandes
 // Exécuter UNE SEULE FOIS depuis l'éditeur Apps Script :
 //     creerFormulaire()
 // ============================================================
@@ -19,7 +19,7 @@
 //   S1 Infos générales (Nom, Prénom, Département)
 //   S2 Type d'absence ── routage par choix :
 //        • Famille            → S3
-//        • Urgence            → S4
+//        • Urgence (sans délai - traitement immédiat) → S4
 //        • Autre              → S5
 //        • (les autres)       → S6 (Date)
 //   S3 Type d'absence (famille)  → S6
@@ -36,22 +36,24 @@ function creerFormulaire() {
   // ----------------------------------------------------------
   // 0. Données de référence
   // ----------------------------------------------------------
-  const TITRE = "Formulaire de demande d'autorisation d'absence — " + CONFIG.NOM_ORG;
+  const TITRE = "Formulaire de demande d'autorisation d'absence - " + CONFIG.NOM_ORG;
 
-  const departements = Object.keys(CONFIG.SERVICE_SUP_MAP || {});  // CpD, Digitale, Technique, SAF
+  const departements = Object.keys(CONFIG.SERVICE_SUP_MAP || {});  // CpD, Digitale, Technique, Administratif & Financier
 
-  // Types d'absence — libellés EXACTS (alignés avec TYPES_SANS_DELAI)
+  // Types d'absence - libellés EXACTS du formulaire en production.
+  // NB : le suffixe entre parenthèses de "Urgence (…)" est toléré par
+  // estType() (Utils.gs), qui compare sur la base "Urgence".
   const typesAbsence = [
     'Maladie d\'un proche',
     'Famille',
     'Administration',
     'Activités judiciaires',
     'Motif syndical',
-    'Urgence',
+    'Urgence (sans délai - traitement immédiat)',
     'Autre'
   ];
 
-  // Sous-types Famille — libellés EXACTS (clés de CONFIG.DUREES_FAMILLE)
+  // Sous-types Famille - libellés EXACTS (clés de CONFIG.DUREES_FAMILLE)
   const sousTypesFamille = Object.keys(CONFIG.DUREES_FAMILLE || {});
 
   // ----------------------------------------------------------
@@ -68,7 +70,7 @@ function creerFormulaire() {
   form.setAllowResponseEdits(false);
 
   // ----------------------------------------------------------
-  // 2. SECTION 1 — Informations générales (page d'accueil)
+  // 2. SECTION 1 - Informations générales (page d'accueil)
   // ----------------------------------------------------------
   form.addSectionHeaderItem()
     .setTitle('Informations générales')
@@ -84,9 +86,9 @@ function creerFormulaire() {
     .setRequired(true);                                         // E
 
   // ----------------------------------------------------------
-  // 3. SECTION 2 — Type d'absence
+  // 3. SECTION 2 - Type d'absence
   // ----------------------------------------------------------
-  form.addPageBreakItem()
+  const pageType = form.addPageBreakItem()
     .setTitle('Type d\'absence')
     .setHelpText('Permission exceptionnelle, sans retenue sur salaire ni sur le ' +
                  'congé annuel, dans la limite de 10 jours par an (non cumulables). ' +
@@ -97,7 +99,7 @@ function creerFormulaire() {
     .setHelpText('Une seule réponse possible.');               // F
 
   // ----------------------------------------------------------
-  // 4. SECTION 3 — Type d'absence (famille)
+  // 4. SECTION 3 - Type d'absence (famille)
   // ----------------------------------------------------------
   const pageFamille = form.addPageBreakItem()
     .setTitle('Motif familial')
@@ -111,10 +113,10 @@ function creerFormulaire() {
     .setRequired(true);                                         // G
 
   // ----------------------------------------------------------
-  // 5. SECTION 4 — Motif de l'urgence
+  // 5. SECTION 4 - Motif de l'urgence
   // ----------------------------------------------------------
   const pageUrgence = form.addPageBreakItem()
-    .setTitle('Motif de l\'urgence (sans délai — traitement immédiat)')
+    .setTitle('Motif de l\'urgence (sans délai - traitement immédiat)')
     .setHelpText('Les demandes pour motif d\'urgence ne sont pas soumises au délai ' +
                  'de préavis habituel : elles sont traitées immédiatement. ' +
                  'Décrivez brièvement la situation.');
@@ -125,7 +127,7 @@ function creerFormulaire() {
     .setRequired(true);                                         // H
 
   // ----------------------------------------------------------
-  // 6. SECTION 5 — Motif (Autre)
+  // 6. SECTION 5 - Motif (Autre)
   // ----------------------------------------------------------
   const pageAutre = form.addPageBreakItem()
     .setTitle('Précisez votre motif')
@@ -138,7 +140,7 @@ function creerFormulaire() {
     .setRequired(true);                                         // I
 
   // ----------------------------------------------------------
-  // 7. SECTION 6 — Date de début + Durée
+  // 7. SECTION 6 - Date de début + Durée
   // ----------------------------------------------------------
   const pageDate = form.addPageBreakItem()
     .setTitle('Dates de l\'absence')
@@ -151,11 +153,11 @@ function creerFormulaire() {
 
   const itemDuree = form.addMultipleChoiceItem()
     .setTitle('Durée de l\'absence')
-    .setHelpText('« Toute la journée » applique les horaires 08h00–17h00. ' +
+    .setHelpText('« Toute la journée » applique les horaires 08h00-17h00. ' +
                  '« Personnaliser » vous permet de préciser un créneau et une date de fin.');  // K
 
   // ----------------------------------------------------------
-  // 8. SECTION 7 — Créneau personnalisé
+  // 8. SECTION 7 - Créneau personnalisé
   // ----------------------------------------------------------
   const pagePerso = form.addPageBreakItem()
     .setTitle('Créneau personnalisé')
@@ -173,10 +175,12 @@ function creerFormulaire() {
   // ----------------------------------------------------------
 
   // --- Type d'absence → sections cibles ---
+  //   (comparaison sur la base du libellé, suffixe "(…)" ignoré)
   const choixType = typesAbsence.map(function (t) {
-    if (t === 'Famille') return itemType.createChoice(t, pageFamille);
-    if (t === 'Urgence') return itemType.createChoice(t, pageUrgence);
-    if (t === 'Autre')   return itemType.createChoice(t, pageAutre);
+    const base = t.replace(/\s*\(.*$/, '').trim();
+    if (base === 'Famille') return itemType.createChoice(t, pageFamille);
+    if (base === 'Urgence') return itemType.createChoice(t, pageUrgence);
+    if (base === 'Autre')   return itemType.createChoice(t, pageAutre);
     return itemType.createChoice(t, pageDate);   // Maladie, Administration, Activités jud., Motif syndical
   });
   itemType.setChoices(choixType).setRequired(true);
@@ -197,6 +201,7 @@ function creerFormulaire() {
   itemDuree.setChoices([choixJournee, choixPerso]).setRequired(true);
 
   // --- Fins de section → convergent vers la page Date ---
+  pageType.setGoToPage(pageDate);   // repli si aucun routage par choix
   pageFamille.setGoToPage(pageDate);
   pageUrgence.setGoToPage(pageDate);
   pageAutre.setGoToPage(pageDate);

@@ -1,5 +1,5 @@
 // ============================================================
-// WebApp.gs — Interface HTML de validation (doGet)
+// WebApp.gs - Interface HTML de validation (doGet)
 // ============================================================
 // Routes :
 //   ?token=XXX                  → formulaire de decision
@@ -19,7 +19,7 @@ function doGet(e) {
   }
 
   // Résoudre le thème depuis le token AVANT traiterDecision
-  // (traiterDecision modifie l'état — le token peut ne plus être lisible après)
+  // (traiterDecision modifie l'état - le token peut ne plus être lisible après)
   let theme = null, nomOrg = CONFIG.NOM_ORG;
   let sheet = null, demande = null;
   const found = trouverLigneParToken(token);
@@ -31,22 +31,13 @@ function doGet(e) {
   }
 
   // ----------------------------------------------------------
-  // Contrôle d'identité pour les actions de validation.
-  // Le lien peut avoir été transféré à un tiers : on vérifie que
-  // l'utilisateur Google connecté est bien le validateur attendu
-  // pour CE niveau et CETTE demande.
-  // (Nécessite un déploiement "Anyone with Google account".)
+  // Sécurité par TOKEN uniquement (pas de contrôle par compte Google).
+  // Le déploiement est en "Execute as: Me" + "Anyone" pour éviter tout
+  // écran d'autorisation aux validateurs et à l'employé (comptes mixtes
+  // Gmail/Workspace). Le token UUID à usage unique du lien fait foi :
+  // seul celui qui a reçu l'email le possède, et il est invalidé après
+  // usage. C'est le garant d'authenticité pour toutes les actions.
   // ----------------------------------------------------------
-  if (found && ['APPROUVE', 'REJETE', 'PRECISION'].indexOf(action) !== -1) {
-    const autorises = emailsAutorisesPourNiveau(demande, found.niveau);
-    const ident     = controlerIdentite(autorises);
-    if (!ident.ok) {
-      log('WARN', 'WebApp',
-        `Accès refusé (identité) — demande ${demande.idDemande} niveau ${found.niveau} ` +
-        `— connecté: "${ident.emailConnecte || 'aucun'}"`);
-      return page(pageAccesRefuse(ident.emailConnecte, autorises, nomOrg, theme), theme);
-    }
-  }
 
   if (action === 'APPROUVE') {
     const res = traiterDecision(token, 'APPROUVE', '');
@@ -68,7 +59,7 @@ function doGet(e) {
   }
 
   // L'employé répond à une demande de précisions (token = TOKEN_PRECISION,
-  // donc 'found' ci-dessus est null — on résout via le token de précision).
+  // donc 'found' ci-dessus est null - on résout via le token de précision).
   if (action === 'REPONSE') {
     const fp = trouverLigneParTokenPrecision(token);
     if (!fp) {
@@ -80,15 +71,11 @@ function doGet(e) {
     nomOrg = dem.nomOrg || CONFIG.NOM_ORG;
     theme  = getThemeEmail(nomOrg, dem.emailSuperieur);
 
-    // Contrôle d'identité : seul l'employé demandeur peut répondre.
-    const autorisesEmp = [(dem.emailEmploye || '').toString().trim().toLowerCase()].filter(Boolean);
-    const identEmp     = controlerIdentite(autorisesEmp);
-    if (!identEmp.ok) {
-      log('WARN', 'WebApp',
-        `Accès refusé (identité employé) — demande ${dem.idDemande} ` +
-        `— connecté: "${identEmp.emailConnecte || 'aucun'}"`);
-      return page(pageAccesRefuse(identEmp.emailConnecte, autorisesEmp, nomOrg, theme), theme);
-    }
+    // Pas de contrôle d'identité par compte Google ici : l'employé n'est
+    // pas un validateur et peut utiliser un compte quelconque (Gmail perso,
+    // etc.). Le token de précision (UUID secret dans le lien) fait foi -
+    // seul celui qui a reçu l'email le possède. Cela évite de bloquer
+    // l'employé derrière un écran "compte non attribué".
 
     // Soumission du formulaire de réponse
     if (e.parameter.precisions !== undefined) {
@@ -178,10 +165,9 @@ function cssCommun(theme) {
 
 function pageFormulaire(demande, token, niveau, nomOrg) {
   const org = nomOrg || CONFIG.NOM_ORG;
-  const labelNiveau = {
-    'Superieur':  'Supérieur hiérarchique',
-    'Presidence': 'Présidence'
-  }[niveau];
+  const labelNiveau = (niveau === 'Superieur')
+    ? 'Supérieur hiérarchique'
+    : (getPresidencePourSup(demande).titre || 'Présidence');
 
   const motif = libelleMotif(demande);
   const duree = calculerDuree(demande);
@@ -198,7 +184,7 @@ function pageFormulaire(demande, token, niveau, nomOrg) {
         <span class="badge-att">En attente de votre décision</span>
         <div class="info-row"><span class="lbl">Référence</span>          <span class="val"><strong>${demande.idDemande}</strong></span></div>
         <div class="info-row"><span class="lbl">Employé</span>            <span class="val">${demande.prenom} ${demande.nom}</span></div>
-        <div class="info-row"><span class="lbl">Département</span>        <span class="val">${demande.departement || '—'}</span></div>
+        <div class="info-row"><span class="lbl">Département</span>        <span class="val">${demande.departement || '-'}</span></div>
         <div class="info-row"><span class="lbl">Motif / Absence</span>    <span class="val">${motif}</span></div>
         <div class="info-row"><span class="lbl">Du</span>                 <span class="val">${demande.dateDebut} à ${demande.heureDebut}</span></div>
         <div class="info-row"><span class="lbl">Au</span>                 <span class="val">${demande.dateFin} à ${demande.heureFin}</span></div>
@@ -215,7 +201,7 @@ function pageFormulaire(demande, token, niveau, nomOrg) {
       <div class="card">
         <h2>Rejeter la demande</h2>
         <div class="zone-rejet">
-          <p class="alerte-rejet">Le motif est obligatoire — il sera communiqué à l'employé.</p>
+          <p class="alerte-rejet">Le motif est obligatoire - il sera communiqué à ${demande.prenom}.</p>
           <form method="GET" action="${CONFIG.WEBAPP_URL}" onsubmit="return validerMotif()">
             <input type="hidden" name="token"  value="${token}">
             <input type="hidden" name="action" value="REJETE">
@@ -230,18 +216,18 @@ function pageFormulaire(demande, token, niveau, nomOrg) {
         <div class="zone-precision">
           <p class="alerte-precision">
             Besoin d'explications avant de décider ? Envoyez une demande de précisions
-            à l'employé. Vous recevrez un nouvel email dès qu'il aura répondu.
+            à ${demande.prenom}. Vous recevrez un nouvel email dès sa réponse.
           </p>
-          <form method="GET" action="${CONFIG.WEBAPP_URL}">
+          <form method="GET" action="${CONFIG.WEBAPP_URL}" onsubmit="return validerPrecision()">
             <input type="hidden" name="token"  value="${token}">
             <input type="hidden" name="action" value="PRECISION">
             <textarea name="message" id="msgPrecision" placeholder="Que souhaitez-vous savoir ? (facultatif)" maxlength="800"></textarea>
-            <button type="submit" class="btn btn-detail" onclick="this.disabled=true;this.form.submit();">DEMANDER PLUS DE DÉTAILS</button>
+            <button type="submit" class="btn btn-detail">DEMANDER PLUS DE DÉTAILS</button>
           </form>
         </div>
       </div>
       ` : ''}
-      <div class="footer-page">${org} — Système automatisé de gestion des absences</div>
+      <div class="footer-page">${org} - Système automatisé de gestion des absences</div>
     </div>
     <script>
       function validerMotif() {
@@ -249,6 +235,12 @@ function pageFormulaire(demande, token, niveau, nomOrg) {
         if (!m) { alert('Veuillez saisir un motif de rejet.'); return false; }
         var btn = document.querySelector('.btn-ko');
         btn.disabled = true; btn.textContent = 'Envoi en cours...';
+        return true;
+      }
+      function validerPrecision() {
+        var btn = document.querySelector('.btn-detail');
+        btn.textContent = 'Envoi en cours...';
+        setTimeout(function () { btn.disabled = true; }, 0);
         return true;
       }
     </script>`;
@@ -287,7 +279,7 @@ function pageReponseEmploye(demande, token, nomOrg) {
           </form>
         </div>
       </div>
-      <div class="footer-page">${org} — Système automatisé de gestion des absences</div>
+      <div class="footer-page">${org} - Système automatisé de gestion des absences</div>
     </div>
     <script>
       function validerPrecisions() {
@@ -312,7 +304,7 @@ function pageDejaUtilise(res, nomOrg, theme) {
       <p class="result-msg">${res.message}</p>
       <p class="note-bas">Si vous pensez qu'il s'agit d'une erreur, contactez la direction.</p>
     </div>
-    <div class="footer-page">${org} — Système automatisé de gestion des absences</div>`;
+    <div class="footer-page">${org} - Système automatisé de gestion des absences</div>`;
 }
 
 
@@ -335,7 +327,7 @@ function pageAccesRefuse(emailConnecte, emailsAutorises, nomOrg, theme) {
       </p>
       <p class="note-bas">Si vous pensez qu'il s'agit d'une erreur, contactez la direction.</p>
     </div>
-    <div class="footer-page">${org} — Système automatisé de gestion des absences</div>`;
+    <div class="footer-page">${org} - Système automatisé de gestion des absences</div>`;
 }
 
 
@@ -353,7 +345,7 @@ function pageResultat(res, nomOrg, theme) {
       <p class="result-msg">${res.message}</p>
       <p class="note-bas">Vous pouvez fermer cette fenêtre.</p>
     </div>
-    <div class="footer-page">${org} — Système automatisé de gestion des absences</div>`;
+    <div class="footer-page">${org} - Système automatisé de gestion des absences</div>`;
 }
 
 
@@ -385,7 +377,7 @@ function pageAccueil() {
         Pour toute question, contactez la direction.
       </p>
     </div>
-    <div class="footer-page">${CONFIG.NOM_ORG} — Système automatisé de gestion des absences</div>
+    <div class="footer-page">${CONFIG.NOM_ORG} - Système automatisé de gestion des absences</div>
   `;
 }
 
@@ -399,7 +391,7 @@ function pageErreur(titre, message) {
       <p class="result-msg">${message}</p>
       <p class="note-bas">Si vous avez reçu ce lien par email, vérifiez qu'il n'a pas été tronqué.</p>
     </div>
-    <div class="footer-page">${CONFIG.NOM_ORG} — Système automatisé de gestion des absences</div>`;
+    <div class="footer-page">${CONFIG.NOM_ORG} - Système automatisé de gestion des absences</div>`;
 }
 
 
@@ -410,11 +402,11 @@ function page(contenu, theme) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${CONFIG.NOM_ORG} – Gestion des absences</title>
+  <title>${CONFIG.NOM_ORG} - Gestion des absences</title>
   ${cssCommun(theme)}
 </head>
 <body>${contenu}</body>
 </html>`)
-    .setTitle(CONFIG.NOM_ORG + ' – Gestion des absences')
+    .setTitle(CONFIG.NOM_ORG + ' - Gestion des absences')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }

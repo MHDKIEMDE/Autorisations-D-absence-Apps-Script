@@ -1,12 +1,12 @@
 // ============================================================
-// Setup.gs — Initialisation unique du projet
+// Setup.gs - Initialisation unique du projet
 // A executer UNE SEULE FOIS apres avoir renseigne
 // SHEET_REPONSES_ID dans Config.gs.
 // ============================================================
 
 
 // ============================================================
-// Menu personnalise — apparait automatiquement a l'ouverture
+// Menu personnalise - apparait automatiquement a l'ouverture
 // ============================================================
 function onOpen() {
   SpreadsheetApp.getUi()
@@ -76,7 +76,7 @@ function filtrerParMoisAnnee() {
     else visibles++;
   });
 
-  ui.alert(`Filtre appliqué — ${visibles} demande(s) affichée(s).`);
+  ui.alert(`Filtre appliqué - ${visibles} demande(s) affichée(s).`);
 }
 
 function toutAfficher() {
@@ -112,7 +112,7 @@ function colorerStatuts() {
   colonnes.forEach(col => {
     const range = sheet.getRange(2, col, lastRow - 1, 1);
 
-    // Rouge — Rejeté (toutes variantes)
+    // Rouge - Rejeté (toutes variantes)
     nouvellesRegles.push(
       SpreadsheetApp.newConditionalFormatRule()
         .whenTextContains('Rejeté')
@@ -122,7 +122,7 @@ function colorerStatuts() {
         .build()
     );
 
-    // Vert — Approuvé
+    // Vert - Approuvé
     nouvellesRegles.push(
       SpreadsheetApp.newConditionalFormatRule()
         .whenTextEqualTo('Approuvé')
@@ -132,7 +132,7 @@ function colorerStatuts() {
         .build()
     );
 
-    // Jaune — En attente
+    // Jaune - En attente
     nouvellesRegles.push(
       SpreadsheetApp.newConditionalFormatRule()
         .whenTextContains('En attente')
@@ -142,7 +142,7 @@ function colorerStatuts() {
         .build()
     );
 
-    // Jaune — En cours (STATUT_GLOBAL)
+    // Jaune - En cours (STATUT_GLOBAL)
     nouvellesRegles.push(
       SpreadsheetApp.newConditionalFormatRule()
         .whenTextEqualTo('En cours')
@@ -164,7 +164,7 @@ function initialiserProjet() {
 
   if (!sheet) {
     SpreadsheetApp.getUi().alert(
-      'Erreur — Onglet "' + CONFIG.ONGLET_REPONSES + '" introuvable.\n' +
+      'Erreur - Onglet "' + CONFIG.ONGLET_REPONSES + '" introuvable.\n' +
       'Verifiez que SHEET_REPONSES_ID est correct dans Config.gs.'
     );
     return;
@@ -278,16 +278,20 @@ function initialiserProjet() {
   // ----------------------------------------------------------
   // 4. Confirmation
   // ----------------------------------------------------------
-  SpreadsheetApp.getUi().alert(
-    'Initialisation réussie !\n\n' +
-    'Prochaines étapes (tout dans Config.gs) :\n\n' +
-    '1. Renseigner les vrais emails dans PERSONNEL :\n' +
-    '   presidents.PRES_GENERAL / PRES_SAF (un président par périmètre)\n' +
-    '   superieurs.SUP_CPD.email, etc.\n\n' +
-    '2. Renseigner DRIVE_DOSSIER_RACINE et DRIVE_DOSSIER_TEMPLATE\n\n' +
-    '3. Déployer la Web App puis copier l\'URL dans WEBAPP_URL\n\n' +
-    '4. Tester avec une soumission formulaire.'
-  );
+  try {
+    SpreadsheetApp.getUi().alert(
+      'Initialisation réussie !\n\n' +
+      'Prochaines étapes (tout dans Config.gs) :\n\n' +
+      '1. Renseigner les vrais emails dans PERSONNEL :\n' +
+      '   presidents.PRES_GENERAL / PRES_ADMIN_FIN (un président par périmètre)\n' +
+      '   superieurs.SUP_CPD.email, etc.\n\n' +
+      '2. Renseigner DRIVE_DOSSIER_RACINE et DRIVE_DOSSIER_TEMPLATE\n\n' +
+      '3. Déployer la Web App puis copier l\'URL dans WEBAPP_URL\n\n' +
+      '4. Tester avec une soumission formulaire.'
+    );
+  } catch (e) {
+    Logger.log('[INFO][Setup] Alert ignorée (pas de contexte UI - normal si exécuté depuis l\'éditeur).');
+  }
 }
 
 
@@ -332,86 +336,85 @@ function installerTriggerValidationManuelle() {
 // Protection des colonnes + validation de données
 //
 // Carte des accès :
-//   A–P  (données formulaire)  → avertissement seul (lecture conseillée)
-//   Q    AVIS_SUP              → supérieurs uniquement  (verrouillage strict)
-//   R    AVIS_PRES             → Présidence uniquement  (verrouillage strict)
-//   S    COMMENTAIRE           → libre (aucune protection)
-//   T–AA (colonnes système)    → avertissement seul (réservé au script)
+//   A-N  (données formulaire)  → avertissement seul (lecture conseillée)
+//   P    AVIS_SUP              → PAR LIGNE : seul le supérieur de la
+//                                demande de cette ligne (strict)
+//   Q    AVIS_PRES             → PAR LIGNE : seul le président compétent
+//                                pour cette demande (strict)
+//   R    COMMENTAIRE           → libre (aucune protection)
+//   S-AC (colonnes système)    → avertissement seul (réservé au script)
 //
-// Dropdowns R, S, T : En attente / Approuvé / Rejeté
+// Les protections P/Q sont posées cellule par cellule à la création
+// de chaque demande (appliquerProtectionsLigne, Utils.gs) et mises à
+// jour à chaque étape du circuit. Cette fonction les RECONSTRUIT pour
+// toutes les lignes existantes (récupération / changement de config).
+//
+// Dropdown P et Q : En attente / En attente de précisions / Approuvé / Rejeté
 // ============================================================
 function configurerProtections(ss, sheet) {
   if (!ss)    ss    = SpreadsheetApp.openById(CONFIG.SHEET_REPONSES_ID);
   if (!sheet) sheet = ss.getSheetByName(CONFIG.ONGLET_REPONSES);
   if (!sheet) {
-    Logger.log('[WARN][Setup] Onglet introuvable — protections ignorees');
+    Logger.log('[WARN][Setup] Onglet introuvable - protections ignorees');
     return;
   }
 
   const lastRow = Math.max(sheet.getLastRow(), 200); // anticiper les futures lignes
 
   // ----------------------------------------------------------
-  // 0. Supprimer toutes les protections de plage existantes
+  // 0. Supprimer toutes les protections existantes
+  //    (plages ET feuille entière - une protection de feuille posée
+  //    manuellement bloquerait les protect() qui suivent)
   // ----------------------------------------------------------
   sheet.getProtections(SpreadsheetApp.ProtectionType.RANGE).forEach(p => p.remove());
-
-  // Listes d'emails validateurs — lues depuis CONFIG.PERSONNEL
-  const sups       = (CONFIG.PERSONNEL || {}).superieurs || {};
-  const emailsSup  = Object.values(sups).map(s => s.email).filter(Boolean);
-  // Tous les présidents (un par périmètre)
-  const presidents = (CONFIG.PERSONNEL || {}).presidents || {};
-  const emailsPres = Object.values(presidents)
-    .map(p => p.email)
-    .filter(Boolean)
-    .filter((e, i, arr) => arr.indexOf(e) === i); // dédoublonnage
+  sheet.getProtections(SpreadsheetApp.ProtectionType.SHEET).forEach(p => {
+    try { p.remove(); } catch (err) {
+      Logger.log('[WARN][Setup] Protection de feuille non supprimable ' +
+                 '(posée par un autre compte ?) : ' + err);
+    }
+  });
 
   // ----------------------------------------------------------
-  // 1. Colonnes A–N : données formulaire — avertissement seul
+  // 1. Colonnes A-N : données formulaire - avertissement seul
   // ----------------------------------------------------------
   const nbColsFormulaire = CONFIG.COL.DATE_FIN; // dernière colonne formulaire (N)
   const pForm = sheet.getRange(2, 1, lastRow - 1, nbColsFormulaire).protect();
-  pForm.setDescription('Données formulaire — ne pas modifier manuellement');
+  pForm.setDescription('Données formulaire - ne pas modifier manuellement');
   pForm.setWarningOnly(true);
   Logger.log('[OK][Setup] Protection avertissement colonnes A-N configuree');
 
   // ----------------------------------------------------------
-  // 2. Colonne P — AVIS_SUP : supérieurs uniquement
+  // 2. Colonnes P et Q - protection PAR LIGNE
+  //    Pour chaque demande existante, la cellule d'avis n'est
+  //    éditable que par SON validateur (sup de la ligne / président
+  //    compétent). Les lignes clôturées sont verrouillées pour tous.
   // ----------------------------------------------------------
-  const pSup = sheet.getRange(2, CONFIG.COL.AVIS_SUP, lastRow - 1).protect();
-  pSup.setDescription('Réservé : Supérieurs hiérarchiques');
-  pSup.removeEditors(pSup.getEditors());
-  if (emailsSup.length > 0) {
-    pSup.addEditors(emailsSup);
-    Logger.log('[OK][Setup] Protection AVIS_SUP — ' + emailsSup.length + ' éditeur(s)');
-  } else {
-    Logger.log('[WARN][Setup] PERSONNEL.superieurs vide — col N verrouillée (propriétaire seulement). ' +
-               'Ajoutez les supérieurs dans Config.gs puis relancez "Reconfigurer les protections".');
+  const lastDataRow = sheet.getLastRow();
+  let nbLignesProtegees = 0;
+  if (lastDataRow >= 2) {
+    const ids = sheet.getRange(2, CONFIG.COL.ID_DEMANDE, lastDataRow - 1).getValues();
+    for (let i = 0; i < ids.length; i++) {
+      if (!ids[i][0].toString().trim()) continue;
+      appliquerProtectionsLigne(sheet, i + 2);
+      nbLignesProtegees++;
+    }
   }
+  Logger.log('[OK][Setup] Protections par ligne P/Q - ' +
+             nbLignesProtegees + ' demande(s) traitée(s)');
 
   // ----------------------------------------------------------
-  // 3. Colonne Q — AVIS_PRES : Présidence uniquement
+  // 4. Colonne R - COMMENTAIRE : aucune protection (libre)
   // ----------------------------------------------------------
-  const pPres = sheet.getRange(2, CONFIG.COL.AVIS_PRES, lastRow - 1).protect();
-  pPres.setDescription('Réservé : Présidence');
-  pPres.removeEditors(pPres.getEditors());
-  if (emailsPres.length > 0) {
-    pPres.addEditors(emailsPres);
-    Logger.log('[OK][Setup] Protection AVIS_PRES — ' + emailsPres.join(', '));
-  }
+  Logger.log('[OK][Setup] Colonne R (Commentaire) - sans protection (libre)');
 
   // ----------------------------------------------------------
-  // 4. Colonne R — COMMENTAIRE : aucune protection (libre)
-  // ----------------------------------------------------------
-  Logger.log('[OK][Setup] Colonne R (Commentaire) — sans protection (libre)');
-
-  // ----------------------------------------------------------
-  // 5. Colonnes S–Z : colonnes système — avertissement seul
+  // 5. Colonnes S-Z : colonnes système - avertissement seul
   //    (ID demande, tokens, statut global, dates, Drive IDs...)
   // ----------------------------------------------------------
   const colDebutSys = CONFIG.COL.ID_DEMANDE;
   const nbColsSys   = CONFIG.COL.NB_PRECISIONS - colDebutSys + 1;
   const pSys = sheet.getRange(2, colDebutSys, lastRow - 1, nbColsSys).protect();
-  pSys.setDescription('Colonnes système — réservées au script');
+  pSys.setDescription('Colonnes système - réservées au script');
   pSys.setWarningOnly(true);
   Logger.log('[OK][Setup] Protection avertissement colonnes système (S-Z) configuree');
 
@@ -419,7 +422,7 @@ function configurerProtections(ss, sheet) {
   // 6. Validation de données (dropdown) sur P et Q
   // ----------------------------------------------------------
   // 'En attente de précisions' est une valeur écrite par le script
-  // (pas un choix manuel) — elle doit figurer dans la liste pour ne pas
+  // (pas un choix manuel) - elle doit figurer dans la liste pour ne pas
   // être marquée invalide par la validation de données.
   const regleAvis = SpreadsheetApp.newDataValidation()
     .requireValueInList(['En attente', 'En attente de précisions', 'Approuvé', 'Rejeté'], true)
@@ -435,14 +438,14 @@ function configurerProtections(ss, sheet) {
   try {
     SpreadsheetApp.getUi().alert(
       '✅ Protections configurées !\n\n' +
-      '• Colonne P (Avis Supérieur)  → ' + (emailsSup.length > 0 ? emailsSup.join(', ') : '⚠️ aucun supérieur défini') + '\n' +
-      '• Colonne Q (Avis Présidence) → ' + (emailsPres.length > 0 ? emailsPres.join(', ') : '⚠️ non défini') + '\n' +
+      '• Colonnes P/Q (Avis)         → protégées PAR LIGNE : seul le validateur\n' +
+      '  de chaque demande peut éditer sa cellule (' + nbLignesProtegees + ' demande(s) traitée(s))\n' +
       '• Colonne R (Commentaire)     → libre (accessible à tous)\n' +
-      '• Colonnes A–N et S–Z         → avertissement (réservé script/formulaire)\n\n' +
+      '• Colonnes A-N et S-AC        → avertissement (réservé script/formulaire)\n\n' +
       'Un menu déroulant (En attente / Approuvé / Rejeté) a été ajouté sur P et Q.'
     );
   } catch (e) {
-    Logger.log('[INFO][Setup] Alert ignorée (pas de contexte UI — normal si exécuté depuis l\'éditeur).');
+    Logger.log('[INFO][Setup] Alert ignorée (pas de contexte UI - normal si exécuté depuis l\'éditeur).');
   }
 }
 

@@ -1,6 +1,6 @@
 // ============================================================
-// Code.gs — Trigger onFormSubmit + rejet automatique 72h
-// Système d'autorisation d'absence — Massaka SAS
+// Code.gs - Trigger onFormSubmit + rejet automatique 72h
+// Système d'autorisation d'absence - Massaka SAS
 // ============================================================
 
 function onFormSubmit(e) {
@@ -14,8 +14,8 @@ function onFormSubmit(e) {
     //
     //    Priorité :
     //    a) Sous-type Famille à durée prédéfinie (DUREES_FAMILLE)
-    //       → date fin = début + (N-1) jours calendaires, journée 08h–17h
-    //    b) Durée "Toute la journée" → journée 08h–17h, fin = début
+    //       → date fin = début + (N-1) jours calendaires, journée 08h-17h
+    //    b) Durée "Toute la journée" → journée 08h-17h, fin = début
     //    c) "Personnaliser" → garde-fou date fin (défaut = début)
     // ----------------------------------------------------------
     const H08 = new Date(1899, 11, 30, 8,  0, 0);  // base GAS pour TimeOfDay
@@ -26,14 +26,14 @@ function onFormSubmit(e) {
     const dDebut      = sheet.getRange(row, CONFIG.COL.DATE_DEBUT).getValue();
 
     if (dureeFamille && dDebut) {
-      // a) Famille à durée fixe — fin calculée, journée entière
+      // a) Famille à durée fixe - fin calculée, journée entière
       const dFinCalc = new Date(dDebut);
       dFinCalc.setDate(dFinCalc.getDate() + (dureeFamille - 1));
       ecrireColonne(sheet, row, CONFIG.COL.HEURE_DEBUT, H08);
       ecrireColonne(sheet, row, CONFIG.COL.HEURE_FIN,   H17);
       ecrireColonne(sheet, row, CONFIG.COL.DATE_FIN,    dFinCalc);
       log('INFO', 'onFormSubmit',
-        `Famille "${familleVal}" — durée ${dureeFamille}j, date fin calculée, ligne ${row}`);
+        `Famille "${familleVal}" - durée ${dureeFamille}j, date fin calculée, ligne ${row}`);
 
     } else {
       const duree = sheet.getRange(row, CONFIG.COL.DUREE).getValue().toString().trim();
@@ -44,15 +44,15 @@ function onFormSubmit(e) {
           ecrireColonne(sheet, row, CONFIG.COL.HEURE_FIN,   H17);
           ecrireColonne(sheet, row, CONFIG.COL.DATE_FIN,    dDebut);
           log('INFO', 'onFormSubmit',
-            `Durée "Toute la journée" — heures 08h00–17h00 et date fin injectées, ligne ${row}`);
+            `Durée "Toute la journée" - heures 08h00-17h00 et date fin injectées, ligne ${row}`);
         }
       } else {
-        // c) Personnaliser — garde-fou date fin
+        // c) Personnaliser - garde-fou date fin
         const dFin = sheet.getRange(row, CONFIG.COL.DATE_FIN).getValue();
         if (!dFin && dDebut) {
           ecrireColonne(sheet, row, CONFIG.COL.DATE_FIN, dDebut);
           log('INFO', 'onFormSubmit',
-            `Date de fin absente — défaut = date de début, ligne ${row}`);
+            `Date de fin absente - défaut = date de début, ligne ${row}`);
         }
       }
     }
@@ -75,13 +75,13 @@ function onFormSubmit(e) {
     // ----------------------------------------------------------
     const service       = sheet.getRange(row, CONFIG.COL.DEPARTEMENT).getValue().toString().trim();
     const serviceConfig = (CONFIG.SERVICE_SUP_MAP || {})[service] || {};
-    // sup est une clé interne (ex: 'SUP_CPD') — résolution de l'email via PERSONNEL
+    // sup est une clé interne (ex: 'SUP_CPD') - résolution de l'email via PERSONNEL
     const emailSup      = getEmailSuperieur(serviceConfig.sup);
     const workflow      = serviceConfig.workflow || 'PRES';
 
     if (!serviceConfig.workflow) {
       log('WARN', 'onFormSubmit',
-        `Service "${service}" absent de SERVICE_SUP_MAP — workflow PRES appliqué par défaut, ligne ${row}`);
+        `Service "${service}" absent de SERVICE_SUP_MAP - workflow PRES appliqué par défaut, ligne ${row}`);
     }
 
     ecrireColonne(sheet, row, CONFIG.COL.EMAIL_SUP, emailSup);
@@ -104,7 +104,7 @@ function onFormSubmit(e) {
     // ----------------------------------------------------------
     const typesSansDelai = CONFIG.TYPES_SANS_DELAI || [];
     // Comparaison TOLÉRANTE : reconnaît "Urgence" même si l'option du
-    // formulaire a été renommée (ex: "Urgence (sans délai — …)").
+    // formulaire a été renommée (ex: "Urgence (sans délai - …)").
     const exemptDelai    = typesSansDelai.some(t => estType(typeAbsence, t));
 
     if (exemptDelai) {
@@ -138,6 +138,8 @@ function onFormSubmit(e) {
         ecrireColonne(sheet, row, CONFIG.COL.STATUT_GLOBAL, 'Rejeté automatiquement');
         ecrireColonne(sheet, row, CONFIG.COL.DATE_CLOTURE,  new Date());
 
+        appliquerProtectionsLigne(sheet, row);   // verrouille P et Q (demande close)
+
         envoyerConfirmationFinaleEmploye(
           lireDemande(sheet, row),
           'Rejeté',
@@ -164,20 +166,40 @@ function onFormSubmit(e) {
     //
     //    SUP_PRES : Supérieur → Présidence
     //    PRES     : Présidence directement
+    //
+    //    Anti auto-validation : si le demandeur EST lui-même le
+    //    supérieur du service (ex: la responsable CpD demande une
+    //    absence), on saute le niveau Supérieur - il ne peut pas
+    //    s'auto-approuver - et on démarre directement à la Présidence.
     // ----------------------------------------------------------
+    const emailEmploye = sheet.getRange(row, CONFIG.COL.EMAIL_EMPLOYE)
+                              .getValue().toString().trim().toLowerCase();
+    const demandeurEstSup = !!emailSup &&
+      emailEmploye === emailSup.toString().trim().toLowerCase();
+
+    if (demandeurEstSup) {
+      log('INFO', 'onFormSubmit',
+        `Demandeur "${emailEmploye}" = supérieur du service "${service}" - ` +
+        `niveau Supérieur sauté, envoi direct à la Présidence, ligne ${row}`);
+    }
+
     let premierNiveau;
-    if (workflow === 'PRES') {
+    if (workflow === 'PRES' || demandeurEstSup) {
       ecrireColonne(sheet, row, CONFIG.COL.AVIS_SUP,  'Approuvé');
       ecrireColonne(sheet, row, CONFIG.COL.TOKEN_SUP, 'INVALIDE_' + tokenSup);
       ecrireColonne(sheet, row, CONFIG.COL.AVIS_PRES, 'En attente');
       premierNiveau = 'Presidence';
     } else {
-      // SUP_PRES — circuit complet (défaut)
+      // SUP_PRES - circuit complet (défaut)
       ecrireColonne(sheet, row, CONFIG.COL.AVIS_SUP,  'En attente');
       ecrireColonne(sheet, row, CONFIG.COL.AVIS_PRES, 'En attente');
       premierNiveau = 'Superieur';
     }
     ecrireColonne(sheet, row, CONFIG.COL.STATUT_GLOBAL, 'En cours');
+
+    // Protection par ligne : seul le validateur de CETTE demande peut
+    // éditer sa cellule d'avis (P = sup du département, Q = président)
+    appliquerProtectionsLigne(sheet, row);
 
     // ----------------------------------------------------------
     // 6. Notifier le premier validateur
@@ -186,7 +208,7 @@ function onFormSubmit(e) {
     const tokenPremier = { Superieur: tokenSup, Presidence: tokenPres }[premierNiveau];
     envoyerNotificationValidateur(demande, premierNiveau, tokenPremier);
     log('INFO', 'onFormSubmit',
-      `Workflow "${workflow}" — premier validateur notifié : ${premierNiveau}`);
+      `Workflow "${workflow}" - premier validateur notifié : ${premierNiveau}`);
 
     // ----------------------------------------------------------
     // 7. Accusé de réception à l'employé
@@ -203,7 +225,7 @@ function onFormSubmit(e) {
 
 
 // ============================================================
-// onEdit (simple) — Bloque toute re-modification après décision.
+// onEdit (simple) - Bloque toute re-modification après décision.
 // ============================================================
 function onEdit(e) {
   if (!e || !e.range) return;

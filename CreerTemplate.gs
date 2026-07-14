@@ -1,5 +1,5 @@
 // ============================================================
-// CreerTemplate.gs — Génère le template Google Doc
+// CreerTemplate.gs - Génère le template Google Doc
 // Exécuter UNE SEULE FOIS depuis l'éditeur Apps Script.
 // Le Doc est créé dans le dossier DRIVE_DOSSIER_TEMPLATE.
 // ============================================================

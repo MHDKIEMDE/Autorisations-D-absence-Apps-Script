@@ -1,9 +1,9 @@
 // ============================================================
-// Relances.gs — Relances automatiques + outils de maintenance
+// Relances.gs - Relances automatiques + outils de maintenance
 // ============================================================
 
 // ============================================================
-// 1. Vérifier et relancer — appelé automatiquement chaque jour
+// 1. Vérifier et relancer - appelé automatiquement chaque jour
 // ============================================================
 function verifierEtRelancer() {
   const sheet   = getSheetReponses();
@@ -36,7 +36,7 @@ function verifierEtRelancer() {
     const dateDebutRaw = r[CONFIG.COL.DATE_DEBUT - 1];
     const dateDebut    = dateDebutRaw ? new Date(dateDebutRaw) : null;
     if (dateDebut && !isNaN(dateDebut) && today >= dateDebut) {
-      log('INFO', 'Relances', `Relance ignorée — date de début passée (ligne ${row})`);
+      log('INFO', 'Relances', `Relance ignorée - date de début passée (ligne ${row})`);
       return;
     }
 
@@ -215,7 +215,7 @@ function nettoyerTriggers() {
 
 
 // ============================================================
-// Utilitaire interne — retourne le niveau en attente pour une ligne
+// Utilitaire interne - retourne le niveau en attente pour une ligne
 // ============================================================
 function _getNiveauEnAttente(sheet, row) {
   const avisSup  = sheet.getRange(row, CONFIG.COL.AVIS_SUP ).getValue().toString();

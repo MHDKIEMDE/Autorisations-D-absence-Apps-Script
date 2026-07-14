@@ -1,10 +1,10 @@
 // ============================================================
-// Utils.gs — Fonctions utilitaires partagées
+// Utils.gs - Fonctions utilitaires partagées
 // ============================================================
 
 function log(niveau, contexte, message) {
   const ts  = new Date().toLocaleString('fr-FR', { timeZone: 'Africa/Dakar' });
-  Logger.log(`[${niveau}][${contexte}] ${message} — ${ts}`);
+  Logger.log(`[${niveau}][${contexte}] ${message} - ${ts}`);
 }
 
 function genererUUID() {
@@ -174,7 +174,7 @@ function getEmailSuperieur(supKey) {
 
 /**
  * Retourne LE président (unique) pour une demande, sous forme
- *   { emails: [unSeul], noms: [unSeul] } — un tableau d'un seul
+ *   { emails: [unSeul], noms: [unSeul] } - un tableau d'un seul
  *   élément pour rester compatible avec les appelants existants.
  *
  * Résolution PAR DÉPARTEMENT :
@@ -191,30 +191,60 @@ function getPresidencePourSup(demande) {
   const serviceConf = (CONFIG.SERVICE_SUP_MAP || {})[departement] || {};
   const presidents  = (CONFIG.PERSONNEL || {}).presidents || {};
 
-  let pres = serviceConf.presidence ? presidents[serviceConf.presidence] : null;
+  // Clé du président normalement compétent pour ce département
+  let cle = serviceConf.presidence && presidents[serviceConf.presidence]
+    ? serviceConf.presidence
+    : 'PRES_GENERAL';
+
+  // Contrôle croisé : si le demandeur EST ce président, il ne peut pas
+  // s'auto-valider - on bascule vers le président croisé (cf. Config.gs).
+  const emailDemandeur = (demande && demande.emailEmploye || '')
+    .toString().trim().toLowerCase();
+  const emailPresNormal = ((presidents[cle] || {}).email || '')
+    .toString().trim().toLowerCase();
+
+  if (emailDemandeur && emailDemandeur === emailPresNormal) {
+    const croise = ((CONFIG.PERSONNEL || {}).presidentCroise || {})[cle];
+    if (croise && presidents[croise] && presidents[croise].email) {
+      log('INFO', 'getPresidencePourSup',
+        `Demandeur "${emailDemandeur}" = président "${cle}" - ` +
+        `contrôle croisé, validation confiée à "${croise}"`);
+      cle = croise;
+    } else {
+      log('WARN', 'getPresidencePourSup',
+        `Président "${cle}" demande une absence mais aucun président ` +
+        `croisé valide n'est configuré - il resterait son propre validateur.`);
+    }
+  }
+
+  let pres = presidents[cle] || null;
 
   if (!pres || !pres.email) {
     pres = presidents.PRES_GENERAL || null;
     if (serviceConf.presidence) {
       log('WARN', 'getPresidencePourSup',
         `Président "${serviceConf.presidence}" introuvable pour ` +
-        `département "${departement}" — fallback PRES_GENERAL`);
+        `département "${departement}" - fallback PRES_GENERAL`);
     }
   }
 
   return {
-    emails: pres && pres.email ? [pres.email] : [],
-    noms:   pres && pres.nom   ? [pres.nom]   : []
+    emails:  pres && pres.email ? [pres.email] : [],
+    noms:    pres && pres.nom   ? [pres.nom]   : [],
+    titre:   (pres && pres.titre)   || '',   // ex: "Président" / "Vice-présidente"
+    article: (pres && pres.article) || ''    // ex: "le" / "la"
   };
 }
 
 /**
- * Retourne la liste des emails AUTORISÉS à agir à un niveau donné pour
- * une demande précise. Sert au contrôle d'identité de la page web :
- * seul le bon validateur (par son email Google) peut valider.
+ * ⚠️ INACTIVE - conservée pour un éventuel retour au contrôle d'identité.
+ * Le système sécurise désormais par TOKEN uniquement (déploiement
+ * "Execute as: Me" + comptes mixtes). Voir doGet() dans WebApp.gs.
  *
+ * Retourne la liste des emails AUTORISÉS à agir à un niveau donné pour
+ * une demande précise.
  *   Superieur  → l'email du supérieur de CE département
- *   Presidence → tous les co-présidents du groupe de CE département
+ *   Presidence → le président (croisé si le demandeur est président)
  *
  * @return {string[]} emails en minuscules, sans doublon.
  */
@@ -254,7 +284,7 @@ function controlerIdentite(emailsAutorises) {
 }
 
 function formatDateHeure(date) {
-  if (!date) return '—';
+  if (!date) return '-';
   try {
     const str = new Date(date).toLocaleDateString('fr-FR', {
       timeZone: 'Africa/Dakar',
@@ -289,7 +319,7 @@ function formatHeure(heure) {
  * éventuel suffixe entre parenthèses.
  *
  * Permet de renommer une option du formulaire (ex:
- * "Urgence (sans délai — traitement immédiat)") sans casser la
+ * "Urgence (sans délai - traitement immédiat)") sans casser la
  * logique qui repose sur le type de base ("Urgence").
  *
  *   estType("Urgence (sans délai…)", "Urgence")  → true
@@ -308,28 +338,28 @@ function estType(valeur, base) {
 
 /**
  * Construit le libellé "Motif / Absence" affiché aux validateurs.
- * Source unique de vérité — utilisée par les emails (Notifications.gs)
+ * Source unique de vérité - utilisée par les emails (Notifications.gs)
  * ET par la page web de validation (WebApp.gs), pour éviter toute
  * divergence d'affichage.
  *
- *   Famille  → sous-type famille (ou "Famille — <motif>" si "Autre")
- *   Urgence  → "Urgence — <motif d'urgence>"
+ *   Famille  → sous-type famille (ou "Famille - <motif>" si "Autre")
+ *   Urgence  → "Urgence - <motif d'urgence>"
  *   Autre    → motif libre
  *   sinon    → le type d'absence tel quel
  */
 function libelleMotif(demande) {
   if (estType(demande.typeAbsence, 'Famille')) {
     return estType(demande.famille, 'Autre')
-      ? `Famille — ${demande.motif || '—'}`
+      ? `Famille - ${demande.motif || '-'}`
       : (demande.famille || 'Famille');
   }
   if (estType(demande.typeAbsence, 'Urgence')) {
-    return demande.motifUrgence ? `Urgence — ${demande.motifUrgence}` : 'Urgence';
+    return demande.motifUrgence ? `Urgence - ${demande.motifUrgence}` : 'Urgence';
   }
   if (estType(demande.typeAbsence, 'Autre')) {
-    return demande.motif || '—';
+    return demande.motif || '-';
   }
-  return demande.typeAbsence || '—';
+  return demande.typeAbsence || '-';
 }
 
 function ecrireColonne(sheet, row, colIndex, valeur) {
@@ -401,11 +431,108 @@ function calculerDuree(demande) {
     const t2 = demande.heureFinRaw   ? extractTime(demande.heureFinRaw)   : { h: 0, m: 0 };
     const diffMin = (t2.h * 60 + t2.m) - (t1.h * 60 + t1.m);
     if (diffMin <= 0) return 'N/A';
+    // Journée standard 08h00-17h00 : 8h de travail effectif (1h de pause
+    // déjeuner incluse dans la plage) - ne pas afficher "9h".
+    if (t1.h === 8 && t1.m === 0 && t2.h === 17 && t2.m === 0) {
+      return '1 jour (8h)';
+    }
     const h = Math.floor(diffMin / 60);
     const m = diffMin % 60;
     return m === 0 ? `${h}h` : `${h}h${String(m).padStart(2, '0')}`;
   } else {
     const jours = diffJours + 1;
     return `${jours} jour${jours > 1 ? 's' : ''}`;
+  }
+}
+
+
+// ============================================================
+// Protection PAR LIGNE des cellules d'avis (colonnes P / Q)
+//
+// La protection par colonne ne suffit pas : n'importe quel supérieur
+// de la liste pourrait éditer la colonne P d'une demande d'un autre
+// service. On protège donc chaque cellule d'avis individuellement,
+// avec pour seul éditeur LE validateur attendu de CETTE demande :
+//   P → le supérieur résolu du département (col O)
+//   Q → le président du périmètre (croisé si le demandeur est président)
+//
+// Les emails CONFIG.ADMINS sont toujours ajoutés (maintenance), et le
+// propriétaire du Sheet garde l'accès (comportement natif Google).
+// Une liste d'éditeurs vide = cellule verrouillée pour tout le monde.
+// ============================================================
+
+/**
+ * Supprime la ou les protections posées exactement sur une cellule.
+ */
+function supprimerProtectionCellule(sheet, row, col) {
+  const a1 = sheet.getRange(row, col).getA1Notation();
+  sheet.getProtections(SpreadsheetApp.ProtectionType.RANGE)
+    .filter(p => p.getRange().getA1Notation() === a1)
+    .forEach(p => p.remove());
+}
+
+/**
+ * Pose une protection stricte sur UNE cellule d'avis.
+ * @param {string[]} emails  Éditeurs autorisés (vide = verrouillée).
+ */
+function protegerCelluleAvis(sheet, row, col, emails, description) {
+  supprimerProtectionCellule(sheet, row, col);
+
+  const p = sheet.getRange(row, col).protect();
+  p.setDescription(description || 'Réservé au validateur de cette demande');
+  p.removeEditors(p.getEditors());
+
+  const editeurs = (emails || [])
+    .concat(CONFIG.ADMINS || [])
+    .map(e => (e || '').toString().trim().toLowerCase())
+    .filter(Boolean)
+    .filter((e, i, arr) => arr.indexOf(e) === i);
+
+  if (editeurs.length > 0) {
+    try {
+      p.addEditors(editeurs);
+    } catch (err) {
+      log('WARN', 'Protections',
+        `addEditors(${editeurs.join(', ')}) impossible ligne ${row} : ${err}`);
+    }
+  }
+}
+
+/**
+ * (Re)calcule les protections des cellules P et Q d'une ligne selon
+ * l'état de la demande. À appeler à la création, après chaque avis
+ * intermédiaire et à la clôture. Ne bloque jamais le workflow : toute
+ * erreur est seulement journalisée.
+ */
+function appliquerProtectionsLigne(sheet, row) {
+  try {
+    const demande = lireDemande(sheet, row);
+    if (!demande.idDemande) return;
+
+    // Demande clôturée (ou rejetée automatiquement) → tout verrouiller
+    if (demande.statutGlobal && demande.statutGlobal !== 'En cours') {
+      protegerCelluleAvis(sheet, row, CONFIG.COL.AVIS_SUP,  [], 'Demande clôturée - réservé au script');
+      protegerCelluleAvis(sheet, row, CONFIG.COL.AVIS_PRES, [], 'Demande clôturée - réservé au script');
+      return;
+    }
+
+    // P - niveau Supérieur : éditable par le sup de CETTE ligne tant
+    // que son avis est attendu ; verrouillé sinon (sauté ou déjà donné)
+    const supActif = ['En attente', 'En attente de précisions']
+      .includes((demande.avisSuperieur || '').toString());
+    protegerCelluleAvis(
+      sheet, row, CONFIG.COL.AVIS_SUP,
+      supActif && demande.emailSuperieur ? [demande.emailSuperieur] : [],
+      supActif ? 'Réservé : supérieur de cette demande' : 'Niveau Supérieur déjà traité'
+    );
+
+    // Q - niveau Présidence : le président compétent pour cette demande
+    const pres = getPresidencePourSup(demande);
+    protegerCelluleAvis(sheet, row, CONFIG.COL.AVIS_PRES, pres.emails,
+      'Réservé : présidence de cette demande');
+
+  } catch (err) {
+    log('WARN', 'Protections',
+      `appliquerProtectionsLigne ligne ${row} : ${err}`);
   }
 }

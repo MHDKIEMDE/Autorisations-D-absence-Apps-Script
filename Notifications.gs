@@ -1,10 +1,67 @@
 // ============================================================
-// Notifications.gs — Emails HTML
-// Système d'autorisation d'absence — Massaka SAS
+// Notifications.gs - Emails HTML
+// Système d'autorisation d'absence - Massaka SAS
 // ============================================================
 
 /**
- * Retourne le thème visuel — toujours depuis CONFIG.THEME (une seule org).
+ * Construit les options d'un GmailApp.sendEmail à partir de la
+ * section CONFIG.EMAIL (voir Config.gs) :
+ *   - name    : CONFIG.EMAIL.nomExpediteur, sinon nom de l'organisation
+ *   - from    : CONFIG.EMAIL.expediteur (si renseigné ET validé)
+ *   - replyTo : CONFIG.EMAIL.repondreA (si renseigné)
+ *
+ * ⚠️ GmailApp lève « Argument non valide : <adresse> » si "from" n'est
+ * pas un ALIAS validé sur le compte qui exécute le script (Paramètres
+ * Gmail → Comptes et importation → « Envoyer des e-mails en tant que »).
+ * Pour ne jamais bloquer le workflow, l'adresse est vérifiée contre
+ * GmailApp.getAliases() : non validée → ignorée + WARN dans les logs,
+ * l'email part alors du compte exécutant.
+ *
+ * @param {string} nomOrg  Nom d'organisation (fallback du nom d'expéditeur).
+ * @param {Object} extra   Champs supplémentaires (ex: { htmlBody }).
+ */
+let _aliasesValides = null; // cache pour la durée de l'exécution
+
+function expediteurAutorise_(adresse) {
+  try {
+    if (_aliasesValides === null) {
+      _aliasesValides = GmailApp.getAliases().map(a => a.toLowerCase());
+      const moi = (Session.getEffectiveUser().getEmail() || '').toLowerCase();
+      if (moi) _aliasesValides.push(moi);
+    }
+    return _aliasesValides.indexOf(adresse.toLowerCase()) !== -1;
+  } catch (err) {
+    return false;
+  }
+}
+
+function optionsMail(nomOrg, extra) {
+  const cfg = CONFIG.EMAIL || {};
+  const nomExpediteur = (cfg.nomExpediteur || '').toString().trim();
+  const expediteur    = (cfg.expediteur    || '').toString().trim();
+  const repondreA     = (cfg.repondreA     || '').toString().trim();
+
+  const opts = Object.assign(
+    { name: nomExpediteur || nomOrg || CONFIG.NOM_ORG },
+    extra || {}
+  );
+
+  if (expediteur) {
+    if (expediteurAutorise_(expediteur)) {
+      opts.from = expediteur;
+    } else {
+      log('WARN', 'Notifications',
+        `EMAIL.expediteur "${expediteur}" n'est pas un alias validé sur ce ` +
+        `compte - envoi depuis l'adresse par défaut. Validez l'alias dans ` +
+        `Gmail → Paramètres → Comptes et importation.`);
+    }
+  }
+  if (repondreA) opts.replyTo = repondreA;
+  return opts;
+}
+
+/**
+ * Retourne le thème visuel - toujours depuis CONFIG.THEME (une seule org).
  * Les paramètres nomOrg et emailSup sont conservés pour compatibilité.
  */
 function getThemeEmail(nomOrg, emailSup) {
@@ -177,15 +234,15 @@ function envoyerAccuseReceptionEmploye(demande) {
           Pour toute question, contactez la direction.
         </p>
       </div>
-      <div class="footer">${nomOrg} — Système automatisé de gestion des absences</div>
+      <div class="footer">${nomOrg} - Système automatisé de gestion des absences</div>
     </div></body></html>
   `;
 
   GmailApp.sendEmail(
     demande.emailEmploye,
-    `${nomOrg} – Demande reçue – ${demande.idDemande}`,
+    `${nomOrg} - Demande reçue - ${demande.idDemande}`,
     '',
-    { htmlBody: htmlBody, name: nomOrg }
+    optionsMail(nomOrg, { htmlBody: htmlBody })
   );
 
   log('OK', 'Notifications', `Accusé réception → ${demande.emailEmploye} | org=${nomOrg} | ref=${demande.idDemande}`);
@@ -207,8 +264,8 @@ function envoyerNotificationValidateur(demande, niveau, token, estRelance, preci
     destinations.push({ to: demande.emailSuperieur, nom: nomSup });
 
   } else if (niveau === 'Presidence') {
-    labelNiveau = 'Présidence';
     const pres   = getPresidencePourSup(demande);
+    labelNiveau  = pres.titre || 'Présidence';
     const emails = pres.emails || [];
     const noms   = pres.noms   || [];
     emails.forEach((email, i) => {
@@ -223,7 +280,7 @@ function envoyerNotificationValidateur(demande, niveau, token, estRelance, preci
 
   const blocRelance = estRelance ? `
     <div style="background:#fff3cd;border-left:4px solid #ffc107;border-radius:6px;padding:10px 14px;margin-bottom:16px">
-      <span style="font-size:13px;font-weight:700;color:#856404">⏰ Rappel — cette demande attend toujours votre validation.</span>
+      <span style="font-size:13px;font-weight:700;color:#856404">⏰ Rappel - cette demande attend toujours votre validation.</span>
     </div>
   ` : '';
 
@@ -231,7 +288,7 @@ function envoyerNotificationValidateur(demande, niveau, token, estRelance, preci
   const blocPrecisions = (precisions && precisions.trim()) ? `
     <div style="background:#e8f4ea;border-left:4px solid #2e7d32;border-radius:6px;padding:12px 16px;margin-bottom:16px">
       <div style="font-size:11px;font-weight:800;color:#2e7d32;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">
-        💬 Précisions apportées par l'employé
+        💬 Précisions apportées par ${demande.prenom}
       </div>
       <div style="font-size:14px;color:#1b3a1f;line-height:1.6;white-space:pre-wrap">${precisions.trim()}</div>
     </div>
@@ -239,7 +296,7 @@ function envoyerNotificationValidateur(demande, niveau, token, estRelance, preci
 
   destinations.forEach(({ to, nom }) => {
     if (!to) {
-      log('WARN', 'Notifications', `Email manquant pour niveau ${niveau} — vérifiez Config.gs`);
+      log('WARN', 'Notifications', `Email manquant pour niveau ${niveau} - vérifiez Config.gs`);
       return;
     }
 
@@ -249,7 +306,7 @@ function envoyerNotificationValidateur(demande, niveau, token, estRelance, preci
         <div class="header">
           <div class="logo">⬡ ${nomOrg}</div>
           <div class="sous-titre">Système de gestion des absences</div>
-          <div class="badge">Action requise — ${labelNiveau}</div>
+          <div class="badge">Action requise - ${labelNiveau}</div>
         </div>
         <div class="body">
           <p style="font-size:15px;margin-bottom:4px">
@@ -261,12 +318,17 @@ function envoyerNotificationValidateur(demande, niveau, token, estRelance, preci
             Une demande d'autorisation d'absence nécessite votre validation
             en tant que <strong>${labelNiveau}</strong>.
           </p>
+          <p style="font-size:13px;color:#666666;line-height:1.6;margin-top:6px">
+            Trois réponses possibles : <strong>✅ Approuver</strong>,
+            <strong>❌ Rejeter</strong> (motif obligatoire) ou
+            <strong>💬 Demander des précisions</strong> à ${demande.prenom} avant de vous prononcer.
+          </p>
           ${blocRecapitulatif(demande, theme)}
           <div class="section-title">Votre décision</div>
 
           <div style="background:${theme.couleurFondTableau || '#f0f9fc'};border:2px solid ${theme.couleurAccent};border-radius:10px;padding:20px;margin-bottom:16px">
             <div style="font-size:13px;font-weight:800;color:${theme.couleurLabelOption1 || theme.couleurAccent};text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px">
-              ✏️ Option 1 — Directement dans le tableau (recommandé)
+              ✏️ Option 1 - Directement dans le tableau (recommandé)
             </div>
             <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-radius:8px;overflow:hidden">
               <tr>
@@ -279,14 +341,17 @@ function envoyerNotificationValidateur(demande, niveau, token, estRelance, preci
               </tr>
             </table>
             <p style="font-size:13px;color:${theme.couleurTexteTableau || '#555555'};margin-top:12px;line-height:1.6">
-              Trouvez la ligne <strong>${demande.idDemande}</strong>, saisissez votre motif en colonne P si vous rejetez,
-              puis choisissez <strong>Approuvé</strong> ou <strong>Rejeté</strong> dans la colonne qui vous correspond.
+              Trouvez la ligne <strong>${demande.idDemande}</strong>, puis choisissez
+              <strong>Approuvé</strong>, <strong>Rejeté</strong> ou
+              <strong>En attente de précisions</strong> dans la colonne qui vous correspond.
+              Pour un rejet ou une demande de précisions, saisissez d'abord votre motif
+              ou votre question en colonne <strong>R (Commentaires)</strong>.
             </p>
           </div>
 
           <div style="background:#f9f9f9;border:1px solid #e0e0e0;border-radius:8px;padding:16px">
             <div style="font-size:12px;font-weight:700;color:#666666;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">
-              Option 2 — Liens rapides (usage unique)
+              Option 2 - Liens rapides (usage unique)
             </div>
             <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:8px">
               <tr>
@@ -298,7 +363,7 @@ function envoyerNotificationValidateur(demande, niveau, token, estRelance, preci
                 </td>
               </tr>
             </table>
-            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:8px">
               <tr>
                 <td bgcolor="${theme.couleurBoutonRejet || '#dc3545'}" style="background:${theme.couleurBoutonRejet || '#dc3545'};border-radius:6px">
                   <a href="${lienRejeter}"
@@ -308,24 +373,36 @@ function envoyerNotificationValidateur(demande, niveau, token, estRelance, preci
                 </td>
               </tr>
             </table>
+            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td bgcolor="#ff9800" style="background:#ff9800;border-radius:6px">
+                  <a href="${lienRejeter}"
+                     style="display:block;text-align:center;padding:12px;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px">
+                    💬 DEMANDER PLUS DE DÉTAILS
+                  </a>
+                </td>
+              </tr>
+            </table>
             <p style="font-size:12px;color:#999999;margin-top:10px;line-height:1.5">
               Ces liens sont à usage unique. Le premier validateur qui clique clôture la décision.
+              « Demander plus de détails » ne clôture pas la demande : ${demande.prenom} répond,
+              puis vous recevez un nouvel email pour décider.
             </p>
           </div>
           <p class="note">
-            Référence : <strong>${demande.idDemande}</strong> —
+            Référence : <strong>${demande.idDemande}</strong> -
             Employé : ${demande.prenom} ${demande.nom}
           </p>
         </div>
-        <div class="footer">${nomOrg} — Système automatisé de gestion des absences</div>
+        <div class="footer">${nomOrg} - Système automatisé de gestion des absences</div>
       </div></body></html>
     `;
 
     GmailApp.sendEmail(
       to,
-      `${estRelance ? 'Relance – ' : ''}${nomOrg} – À valider – ${demande.idDemande} – ${demande.prenom} ${demande.nom}`,
+      `${estRelance ? 'Relance - ' : ''}${nomOrg} - À valider - ${demande.idDemande} - ${demande.prenom} ${demande.nom}`,
       '',
-      { htmlBody: htmlBody, name: nomOrg }
+      optionsMail(nomOrg, { htmlBody: htmlBody })
     );
 
     log('OK', 'Notifications', `Validateur notifié → ${to} | niveau=${niveau} | org=${nomOrg} | ref=${demande.idDemande}`);
@@ -342,8 +419,8 @@ function envoyerConfirmationFinaleEmploye(demande, decision, motif) {
   const estApprouve = decision === 'Approuve' || decision === 'Approuvé';
 
   const sujet = estApprouve
-    ? `${nomOrg} – Absence approuvée – ${demande.idDemande}`
-    : `${nomOrg} – Absence refusée – ${demande.idDemande}`;
+    ? `${nomOrg} - Absence approuvée - ${demande.idDemande}`
+    : `${nomOrg} - Absence refusée - ${demande.idDemande}`;
 
   const iconResultat  = estApprouve ? '✅' : '❌';
   const texteResultat = estApprouve ? 'Votre demande a été approuvée' : 'Votre demande a été refusée';
@@ -371,7 +448,7 @@ function envoyerConfirmationFinaleEmploye(demande, decision, motif) {
       <div class="header">
         <div class="logo">⬡ ${nomOrg}</div>
         <div class="sous-titre">Système de gestion des absences</div>
-        <div class="badge">${estApprouve ? 'Décision finale — Approuvé' : 'Décision finale — Refusé'}</div>
+        <div class="badge">${estApprouve ? 'Décision finale - Approuvé' : 'Décision finale - Refusé'}</div>
       </div>
       <div class="body">
         <p style="font-size:15px;margin-bottom:4px">
@@ -391,11 +468,11 @@ function envoyerConfirmationFinaleEmploye(demande, decision, motif) {
           Référence : <strong>${demande.idDemande}</strong>
         </p>
       </div>
-      <div class="footer">${nomOrg} — Système automatisé de gestion des absences</div>
+      <div class="footer">${nomOrg} - Système automatisé de gestion des absences</div>
     </div></body></html>
   `;
 
-  const options = { htmlBody: htmlBody, name: nomOrg };
+  const options = optionsMail(nomOrg, { htmlBody: htmlBody });
 
   if (estApprouve && demande.driveDocID) {
     try {
@@ -414,14 +491,20 @@ function envoyerConfirmationFinaleEmploye(demande, decision, motif) {
 
 
 // ============================================================
-// Email à l'EMPLOYÉ — demande de précisions par un validateur
+// Email à l'EMPLOYÉ - demande de précisions par un validateur
 // ============================================================
 function envoyerDemandePrecision(demande, niveau, message, lienReponse) {
   const nomOrg = demande.nomOrg || CONFIG.NOM_ORG;
   const theme  = getThemeEmail(nomOrg, demande.emailSuperieur);
-  const labelNiveau = (niveau === 'Superieur') ? 'votre supérieur hiérarchique' : 'la Présidence';
+  let labelNiveau = 'votre supérieur hiérarchique';
+  if (niveau !== 'Superieur') {
+    const pres = getPresidencePourSup(demande);
+    labelNiveau = pres.titre
+      ? `${pres.article || 'le'} ${pres.titre}`
+      : 'la Présidence';
+  }
 
-  const sujet = `${nomOrg} – Précisions demandées – ${demande.idDemande}`;
+  const sujet = `${nomOrg} - Précisions demandées - ${demande.idDemande}`;
 
   const blocMessage = (message && message.trim()) ? `
     <div style="background:${theme.couleurFondMotif || '#f0f9fc'};border-left:4px solid ${theme.couleurAccent || '#016579'};border-radius:6px;padding:12px 16px;margin:16px 0">
@@ -466,11 +549,11 @@ function envoyerDemandePrecision(demande, niveau, message, lienReponse) {
         </div>
         <p class="note">Référence : <strong>${demande.idDemande}</strong></p>
       </div>
-      <div class="footer">${nomOrg} — Système automatisé de gestion des absences</div>
+      <div class="footer">${nomOrg} - Système automatisé de gestion des absences</div>
     </div></body></html>
   `;
 
-  GmailApp.sendEmail(demande.emailEmploye, sujet, '', { htmlBody: htmlBody, name: nomOrg });
+  GmailApp.sendEmail(demande.emailEmploye, sujet, '', optionsMail(nomOrg, { htmlBody: htmlBody }));
   log('OK', 'Notifications',
     `Demande de précisions → ${demande.emailEmploye} | niveau=${niveau} | ref=${demande.idDemande}`);
 }

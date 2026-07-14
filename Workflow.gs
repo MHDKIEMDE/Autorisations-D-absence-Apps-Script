@@ -1,13 +1,13 @@
 // ============================================================
-// Workflow.gs — Logique cascade de validation
-// Système d'autorisation d'absence — Massaka SAS
+// Workflow.gs - Logique cascade de validation
+// Système d'autorisation d'absence - Massaka SAS
 // ============================================================
 //
 // Circuits :
 //   SUP_PRES : Supérieur → Présidence (président unique)
 //   PRES     : Présidence directement (président unique)
 //
-// Un seul président par périmètre (PRES_GENERAL / PRES_SAF) :
+// Un seul président par périmètre (PRES_GENERAL / PRES_ADMIN_FIN) :
 // il valide ou rejette seul ; sa décision clôture la demande.
 // ============================================================
 
@@ -45,7 +45,9 @@ function traiterDecision(token, decision, motif) {
   const statutActuel = sheet.getRange(row, colStatut).getValue();
 
   if (statutActuel !== 'En attente') {
-    const labelNiveau = niveau === 'Superieur' ? 'Supérieur hiérarchique' : 'Présidence';
+    const labelNiveau = niveau === 'Superieur'
+      ? 'Supérieur hiérarchique'
+      : (getPresidencePourSup(demande).titre || 'Présidence');
     log('WARN', 'WebApp',
       `Tentative d'accès sur lien déjà utilisé - demande ${demande.idDemande}`);
     return {
@@ -74,8 +76,9 @@ function traiterDecision(token, decision, motif) {
       `Décision Approuvé enregistrée - ${niveau} - demande ${demande.idDemande}`);
 
     if (niveau === 'Superieur') {
-      // Passer à la Présidence — notifier le président
+      // Passer à la Présidence - notifier le président
       ecrireColonne(sheet, row, CONFIG.COL.AVIS_PRES, 'En attente');
+      appliquerProtectionsLigne(sheet, row);   // verrouille P (avis donné)
       const tokenPres = sheet.getRange(row, CONFIG.COL.TOKEN_PRES).getValue();
       envoyerNotificationValidateur(lireDemande(sheet, row), 'Presidence', tokenPres);
       return {
@@ -84,7 +87,7 @@ function traiterDecision(token, decision, motif) {
       };
 
     } else if (niveau === 'Presidence') {
-      // Clôturer (président unique — plus de second validateur à notifier)
+      // Clôturer (président unique - plus de second validateur à notifier)
       cloturerDemande(sheet, row, 'Approuvé', '');
       const demandeApprouvee = lireDemande(sheet, row);
       const { dossierID, docID } = creerDossierEtDoc(demandeApprouvee);
@@ -96,7 +99,7 @@ function traiterDecision(token, decision, motif) {
       envoyerConfirmationFinaleEmploye(lireDemande(sheet, row), 'Approuvé', '');
       finaliserEnPDF(sheet, row, lireDemande(sheet, row));
       log('OK', 'Workflow', `Demande ${demande.idDemande} clôturée : Approuvé`);
-      return { success: true, message: "Demande approuvée. L'employé a été notifié." };
+      return { success: true, message: `Demande approuvée. ${demande.prenom} a été notifié(e).` };
     }
   }
 
@@ -117,7 +120,7 @@ function traiterDecision(token, decision, motif) {
 
     return {
       success: true,
-      message: "Demande rejetée. L'employé a été notifié avec le motif."
+      message: `Demande rejetée. ${demande.prenom} a été notifié(e) avec le motif.`
     };
   }
 }
@@ -192,8 +195,8 @@ function demanderPrecision(token, message) {
 
   return {
     success: true,
-    message: "Votre demande de précisions a été envoyée à l'employé. " +
-             "Vous recevrez un nouvel email dès qu'il aura répondu."
+    message: `Votre demande de précisions a été envoyée à ${demande.prenom}. ` +
+             `Vous recevrez un nouvel email dès sa réponse.`
   };
 }
 
@@ -252,7 +255,7 @@ function enregistrerReponseEmploye(tokenPrecision, precisions) {
 
   log('OK', 'Workflow',
     `Réponse employé enregistrée - ${niveau} - demande ${demande.idDemande} ` +
-    `— validateur re-notifié`);
+    `- validateur re-notifié`);
 
   return {
     success: true,
@@ -267,13 +270,14 @@ function enregistrerReponseEmploye(tokenPrecision, precisions) {
 function cloturerDemande(sheet, row, statut, motif) {
   ecrireColonne(sheet, row, CONFIG.COL.STATUT_GLOBAL, statut);
   ecrireColonne(sheet, row, CONFIG.COL.DATE_CLOTURE,  new Date());
+  appliquerProtectionsLigne(sheet, row);   // verrouille P et Q (demande close)
   log('OK', 'Workflow',
     `Demande ligne ${row} clôturée avec statut : ${statut}`);
 }
 
 
 /**
- * Trigger installable onEdit — Validation manuelle via le sheet.
+ * Trigger installable onEdit - Validation manuelle via le sheet.
  */
 function traiterDecisionManuelle(e) {
   if (!e || !e.range) return;
@@ -289,7 +293,7 @@ function traiterDecisionManuelle(e) {
   const verrouillee = lock.tryLock(5000);
   if (!verrouillee) {
     log('WARN', 'traiterDecisionManuelle',
-      `Verrou non obtenu ligne ${row} — exécution simultanée ignorée`);
+      `Verrou non obtenu ligne ${row} - exécution simultanée ignorée`);
     return;
   }
 
@@ -304,23 +308,33 @@ function traiterDecisionManuelle(e) {
     const nouvelleValeur = (e.value    || '').toString().trim();
     const ancienneValeur = (e.oldValue !== undefined ? e.oldValue : '').toString().trim();
 
-    if (nouvelleValeur !== 'Approuvé' && nouvelleValeur !== 'Rejeté') return;
+    if (nouvelleValeur !== 'Approuvé' &&
+        nouvelleValeur !== 'Rejeté'   &&
+        nouvelleValeur !== 'En attente de précisions') return;
 
     if (['Approuvé', 'Rejeté'].includes(ancienneValeur)) {
       log('WARN', 'traiterDecisionManuelle',
-        `Ligne ${row} — décision "${ancienneValeur}" déjà en place (col ${col}) — ré-édition ignorée`);
+        `Ligne ${row} - décision "${ancienneValeur}" déjà en place (col ${col}) - ré-édition ignorée`);
+      return;
+    }
+
+    // Anti-réentrance : demanderPrecision() réécrit lui-même la cellule
+    // d'avis à "En attente de précisions". Cette réécriture re-déclenche
+    // le trigger - on l'ignore pour ne pas relancer un aller-retour.
+    if (nouvelleValeur === 'En attente de précisions' &&
+        ancienneValeur === 'En attente de précisions') {
       return;
     }
 
     const idLigne = sheet.getRange(row, CONFIG.COL.ID_DEMANDE).getValue().toString().trim();
     if (!idLigne) {
-      log('WARN', 'traiterDecisionManuelle', `Ligne ${row} vide — décision ignorée`);
+      log('WARN', 'traiterDecisionManuelle', `Ligne ${row} vide - décision ignorée`);
       return;
     }
 
     const statutGlobal = sheet.getRange(row, CONFIG.COL.STATUT_GLOBAL).getValue().toString();
     if (['Approuvé', 'Rejeté', 'Rejeté automatiquement'].includes(statutGlobal)) {
-      log('WARN', 'traiterDecisionManuelle', `Demande ligne ${row} déjà clôturée — édition ignorée`);
+      log('WARN', 'traiterDecisionManuelle', `Demande ligne ${row} déjà clôturée - édition ignorée`);
       return;
     }
 
@@ -345,6 +359,14 @@ function traiterDecisionManuelle(e) {
 
     const demande = lireDemande(sheet, row);
 
+    // Note : la restriction "seul le bon validateur édite sa ligne" repose
+    // ici sur la PROTECTION PAR LIGNE native du Sheet : chaque cellule
+    // d'avis (P/Q) n'a pour éditeur que LE validateur de cette demande
+    // (cf. appliquerProtectionsLigne dans Utils.gs). On ne fait pas de
+    // contrôle Session.getActiveUser() car le web app est déployé
+    // "Execute as: Me" (l'email de l'éditeur peut être vide pour les
+    // comptes hors domaine, ce qui bloquerait tout le monde à tort).
+
     // ----------------------------------------------------------
     // CAS : APPROBATION
     // ----------------------------------------------------------
@@ -354,6 +376,7 @@ function traiterDecisionManuelle(e) {
 
       if (niveau === 'Superieur') {
         ecrireColonne(sheet, row, CONFIG.COL.AVIS_PRES, 'En attente');
+        appliquerProtectionsLigne(sheet, row);   // verrouille P (avis donné)
         const tokenPres = sheet.getRange(row, CONFIG.COL.TOKEN_PRES).getValue();
         envoyerNotificationValidateur(lireDemande(sheet, row), 'Presidence', tokenPres);
         SpreadsheetApp.getActiveSpreadsheet().toast(
@@ -374,8 +397,8 @@ function traiterDecisionManuelle(e) {
         finaliserEnPDF(sheet, row, lireDemande(sheet, row));
         log('OK', 'traiterDecisionManuelle', `Demande ${demande.idDemande} clôturée : Approuvé`);
         SpreadsheetApp.getActiveSpreadsheet().toast(
-          'Demande approuvée et clôturée. L\'employé a été notifié.',
-          '✅ Approuvé — Dossier clôturé', 10
+          `Demande approuvée et clôturée. ${demande.prenom} a été notifié(e).`,
+          '✅ Approuvé - Dossier clôturé', 10
         );
       }
 
@@ -388,12 +411,12 @@ function traiterDecisionManuelle(e) {
       if (!motif) {
         e.range.setValue(ancienneValeur || 'En attente');
         SpreadsheetApp.getActiveSpreadsheet().toast(
-          'Veuillez d\'abord saisir le motif de rejet en colonne P, ' +
+          'Veuillez d\'abord saisir le motif de rejet en colonne R (Commentaires), ' +
           'puis remettre "Rejeté" dans cette colonne.',
           '⚠️ Motif requis', 12
         );
         log('WARN', 'traiterDecisionManuelle',
-          `Rejet sans motif bloqué — ligne ${row}, niveau ${niveau}`);
+          `Rejet sans motif bloqué - ligne ${row}, niveau ${niveau}`);
         return;
       }
 
@@ -405,8 +428,63 @@ function traiterDecisionManuelle(e) {
         `Demande ${demande.idDemande} clôturée : Rejeté (niveau ${niveau})`);
 
       SpreadsheetApp.getActiveSpreadsheet().toast(
-        'Demande rejetée et clôturée. L\'employé a été notifié.',
-        '❌ Rejeté — Dossier clôturé', 10
+        `Demande rejetée et clôturée. ${demande.prenom} a été notifié(e).`,
+        '❌ Rejeté - Dossier clôturé', 10
+      );
+
+    // ----------------------------------------------------------
+    // CAS : DEMANDE DE PRÉCISIONS
+    //   Comme le rejet, le message est OBLIGATOIRE : il faut d'abord
+    //   saisir ce qu'on veut savoir en colonne R (Commentaire), puis
+    //   choisir "En attente de précisions" dans la colonne d'avis.
+    // ----------------------------------------------------------
+    } else if (nouvelleValeur === 'En attente de précisions') {
+      const message = sheet.getRange(row, CONFIG.COL.COMMENTAIRE).getValue().toString().trim();
+
+      if (!message) {
+        e.range.setValue(ancienneValeur || 'En attente');
+        SpreadsheetApp.getActiveSpreadsheet().toast(
+          `Veuillez d'abord saisir en colonne R ce que vous souhaitez que ` +
+          `${demande.prenom} précise, puis remettre "En attente de précisions".`,
+          '⚠️ Message requis', 12
+        );
+        log('WARN', 'traiterDecisionManuelle',
+          `Demande de précisions sans message bloquée - ligne ${row}, niveau ${niveau}`);
+        return;
+      }
+
+      // demanderPrecision() exige que le niveau soit "En attente" et
+      // repasse lui-même la cellule à "En attente de précisions".
+      // On rétablit donc "En attente" avant l'appel (l'utilisateur vient
+      // de saisir "En attente de précisions" à la main).
+      const colStatutNiveau = (niveau === 'Superieur')
+        ? CONFIG.COL.AVIS_SUP : CONFIG.COL.AVIS_PRES;
+      sheet.getRange(row, colStatutNiveau).setValue('En attente');
+      SpreadsheetApp.flush();
+
+      // Le token de décision du niveau courant sert de clé à demanderPrecision
+      const colToken = (niveau === 'Superieur') ? CONFIG.COL.TOKEN_SUP : CONFIG.COL.TOKEN_PRES;
+      const tokenNiveau = sheet.getRange(row, colToken).getValue().toString();
+
+      const res = demanderPrecision(tokenNiveau, message);
+
+      if (!res.success) {
+        // Quota atteint ou niveau déjà traité - revenir à l'état précédent
+        e.range.setValue(ancienneValeur || 'En attente');
+        SpreadsheetApp.getActiveSpreadsheet().toast(
+          res.message, '⚠️ Demande de précisions impossible', 12
+        );
+        log('WARN', 'traiterDecisionManuelle',
+          `Demande de précisions refusée - ligne ${row} : ${res.message}`);
+        return;
+      }
+
+      log('OK', 'traiterDecisionManuelle',
+        `Demande ${demande.idDemande} - précisions demandées manuellement (niveau ${niveau})`);
+
+      SpreadsheetApp.getActiveSpreadsheet().toast(
+        `Demande de précisions envoyée à ${demande.prenom}. Vous serez re-notifié dès sa réponse.`,
+        '💬 Précisions demandées', 10
       );
     }
 
@@ -415,7 +493,7 @@ function traiterDecisionManuelle(e) {
       `${err.toString()} | ligne ${row} | Stack: ${err.stack}`);
     SpreadsheetApp.getActiveSpreadsheet().toast(
       'Erreur lors du traitement : ' + err.message,
-      '⚠️ Erreur — consultez les logs', 20
+      '⚠️ Erreur - consultez les logs', 20
     );
   } finally {
     lock.releaseLock();
