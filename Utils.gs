@@ -283,11 +283,30 @@ function controlerIdentite(emailsAutorises) {
   return { ok, emailConnecte };
 }
 
+// Fuseau horaire du SHEET (pas du script) : les heures saisies dans le
+// formulaire sont stockées sur la date 30/12/1899 et converties en Date
+// selon le fuseau du Sheet. Les relire avec getHours() (fuseau du script)
+// produit un décalage aberrant (ex: 15:00 → 22h43) dès que les deux
+// fuseaux diffèrent. On formate donc TOUJOURS avec le fuseau du Sheet :
+// l'email affiche exactement ce que montre la cellule.
+let _fuseauSheetCache = null;
+function getFuseauSheet() {
+  if (!_fuseauSheetCache) {
+    try {
+      _fuseauSheetCache = SpreadsheetApp.openById(CONFIG.SHEET_REPONSES_ID)
+                                        .getSpreadsheetTimeZone();
+    } catch (e) {
+      _fuseauSheetCache = Session.getScriptTimeZone();
+    }
+  }
+  return _fuseauSheetCache;
+}
+
 function formatDateHeure(date) {
   if (!date) return '-';
   try {
     const str = new Date(date).toLocaleDateString('fr-FR', {
-      timeZone: 'Africa/Dakar',
+      timeZone: getFuseauSheet(),
       weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
       hour: '2-digit', minute: '2-digit'
     });
@@ -299,7 +318,7 @@ function formatDate(date) {
   if (!date) return '';
   try {
     return new Date(date).toLocaleDateString('fr-FR', {
-      timeZone: 'Africa/Dakar',
+      timeZone: getFuseauSheet(),
       weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
     });
   } catch (e) { return String(date); }
@@ -308,8 +327,7 @@ function formatDate(date) {
 function formatHeure(heure) {
   if (!heure) return '';
   try {
-    const d = new Date(heure);
-    return `${String(d.getHours()).padStart(2,'0')}h${String(d.getMinutes()).padStart(2,'0')}`;
+    return Utilities.formatDate(new Date(heure), getFuseauSheet(), "HH'h'mm");
   } catch (e) { return String(heure); }
 }
 
@@ -396,7 +414,7 @@ function joursOuvrables(dateDebut) {
 
   while (cursor <= fin) {
     const jour    = cursor.getDay();
-    const dateStr = Utilities.formatDate(cursor, 'Africa/Dakar', 'yyyy-MM-dd');
+    const dateStr = Utilities.formatDate(cursor, getFuseauSheet(), 'yyyy-MM-dd');
 
     if (jour !== 0 && jour !== 6 && !feriesSet.has(dateStr)) {
       jours++;
@@ -413,16 +431,24 @@ function calculerDuree(demande) {
 
   function extractTime(raw) {
     const d = new Date(raw);
-    return { h: isNaN(d) ? 0 : d.getHours(), m: isNaN(d) ? 0 : d.getMinutes() };
+    if (isNaN(d)) return { h: 0, m: 0 };
+    const tz = getFuseauSheet();
+    return {
+      h: Number(Utilities.formatDate(d, tz, 'H')),
+      m: Number(Utilities.formatDate(d, tz, 'm'))
+    };
   }
 
   const debut = new Date(demande.dateDebutRaw);
   const fin   = new Date(demande.dateFinRaw);
   if (isNaN(debut) || isNaN(fin)) return 'N/A';
 
-  const dDebut = new Date(debut.getFullYear(), debut.getMonth(), debut.getDate());
-  const dFin   = new Date(fin.getFullYear(),   fin.getMonth(),   fin.getDate());
-  const diffJours = Math.round((dFin - dDebut) / 86400000);
+  // Jours calendaires vus dans le fuseau du Sheet (une date à minuit
+  // dans le fuseau du Sheet peut basculer sur la veille dans celui du script)
+  const tzS    = getFuseauSheet();
+  const jDebut = Utilities.formatDate(debut, tzS, 'yyyy-MM-dd');
+  const jFin   = Utilities.formatDate(fin,   tzS, 'yyyy-MM-dd');
+  const diffJours = Math.round((new Date(jFin) - new Date(jDebut)) / 86400000);
 
   if (diffJours < 0) return 'N/A';
 

@@ -411,6 +411,78 @@ function envoyerNotificationValidateur(demande, niveau, token, estRelance, preci
 
 
 // ============================================================
+// 2b. Information à l'employé : une relance a été envoyée
+//     au validateur qui n'a pas encore traité sa demande.
+// ============================================================
+function envoyerInfoRelanceEmploye(demande, niveau) {
+  if (!demande.emailEmploye) {
+    log('WARN', 'Notifications',
+      `Info relance non envoyée - email employé vide (ref=${demande.idDemande})`);
+    return;
+  }
+
+  const nomOrg = demande.nomOrg || CONFIG.NOM_ORG;
+  const theme  = getThemeEmail(nomOrg, demande.emailSuperieur);
+
+  let labelNiveau = 'la présidence';
+  if (niveau === 'Superieur') {
+    labelNiveau = 'votre supérieur hiérarchique';
+  } else {
+    const pres = getPresidencePourSup(demande);
+    if (pres.titre) labelNiveau = `${pres.article || 'le'} ${pres.titre}`;
+  }
+
+  const htmlBody = `
+    <!DOCTYPE html><html><head><meta charset="UTF-8">${cssEmail(theme)}</head>
+    <body><div class="wrap">
+      <div class="header">
+        <div class="logo">⬡ ${nomOrg}</div>
+        <div class="sous-titre">Système de gestion des absences</div>
+        <div class="badge">Suivi de votre demande</div>
+      </div>
+      <div class="body">
+        <p style="font-size:15px;margin-bottom:4px">
+          Bonjour <strong>${demande.prenom} ${demande.nom}</strong>,
+        </p>
+        <p style="font-size:14px;color:#555555;margin-top:8px;line-height:1.6">
+          Votre demande d'autorisation d'absence <strong>${demande.idDemande}</strong>
+          est toujours en attente de validation par <strong>${labelNiveau}</strong>.
+        </p>
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:16px 0;border-collapse:collapse">
+          <tr>
+            <td style="background:${theme.couleurFondMotif || '#f0f9fc'};border-left:4px solid ${theme.couleurAccent};border-radius:6px;padding:12px 16px">
+              <span style="font-size:13px;font-weight:700;color:${theme.couleurAccent};text-transform:uppercase;letter-spacing:.5px">⏰ Relance effectuée</span><br>
+              <span style="font-size:14px;color:#555555;line-height:1.6">
+                Une relance automatique vient d'être envoyée au validateur ce jour.
+                Aucune action n'est requise de votre part - vous serez informé(e)
+                dès qu'une décision sera prise.
+              </span>
+            </td>
+          </tr>
+        </table>
+        ${blocRecapitulatif(demande, theme)}
+        <p class="note">
+          Référence : <strong>${demande.idDemande}</strong><br>
+          Pour toute question, contactez la direction.
+        </p>
+      </div>
+      <div class="footer">${nomOrg} - Système automatisé de gestion des absences</div>
+    </div></body></html>
+  `;
+
+  GmailApp.sendEmail(
+    demande.emailEmploye,
+    `${nomOrg} - Relance effectuée - ${demande.idDemande}`,
+    '',
+    optionsMail(nomOrg, { htmlBody: htmlBody })
+  );
+
+  log('OK', 'Notifications',
+    `Info relance → ${demande.emailEmploye} | niveau=${niveau} | ref=${demande.idDemande}`);
+}
+
+
+// ============================================================
 // 3. Confirmation finale à l'employé
 // ============================================================
 function envoyerConfirmationFinaleEmploye(demande, decision, motif) {

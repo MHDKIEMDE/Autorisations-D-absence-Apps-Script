@@ -48,6 +48,7 @@ function verifierEtRelancer() {
     try {
       const demande = lireDemande(sheet, row);
       envoyerNotificationValidateur(demande, niveau, token, true);
+      envoyerInfoRelanceEmploye(demande, niveau);
       ecrireColonne(sheet, row, CONFIG.COL.RELANCE, today);
       nbRelances++;
       log('OK', 'Relances', `Relance envoyée - ${demande.idDemande} niveau ${niveau}`);

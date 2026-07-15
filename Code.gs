@@ -171,20 +171,57 @@ function onFormSubmit(e) {
     //    supérieur du service (ex: la responsable CpD demande une
     //    absence), on saute le niveau Supérieur - il ne peut pas
     //    s'auto-approuver - et on démarre directement à la Présidence.
+    //
+    //    Sup vide (en congé / non configuré) : le niveau Supérieur
+    //    est validé par défaut et la demande part directement à la
+    //    Présidence - elle ne reste jamais bloquée sans validateur.
+    //
+    //    Sup = président : si l'email du sup est celui du président
+    //    du périmètre (remplacement temporaire), inutile de le faire
+    //    valider deux fois - envoi direct en validation finale.
     // ----------------------------------------------------------
     const emailEmploye = sheet.getRange(row, CONFIG.COL.EMAIL_EMPLOYE)
                               .getValue().toString().trim().toLowerCase();
     const demandeurEstSup = !!emailSup &&
       emailEmploye === emailSup.toString().trim().toLowerCase();
 
-    if (demandeurEstSup) {
+    const supVide = !emailSup;
+
+    const presInfo = getPresidencePourSup({ departement: service, emailEmploye: emailEmploye });
+    const supEstPresident = !!emailSup && (presInfo.emails || []).some(e =>
+      e.toString().trim().toLowerCase() === emailSup.toString().trim().toLowerCase());
+
+    // Demandeur = membre de la présidence (président OU vice-présidente,
+    // quel que soit le département choisi) : un subordonné ne valide pas
+    // la demande de la présidence - niveau Supérieur sauté, la demande
+    // part directement chez le président croisé (cf. presidentCroise).
+    const presidentsCfg = ((CONFIG.PERSONNEL || {}).presidents) || {};
+    const demandeurEstPresident = Object.values(presidentsCfg).some(p =>
+      ((p && p.email) || '').toString().trim().toLowerCase() === emailEmploye);
+
+    if (demandeurEstPresident) {
+      log('INFO', 'onFormSubmit',
+        `Demandeur "${emailEmploye}" = membre de la présidence - ` +
+        `niveau Supérieur sauté, envoi direct en validation croisée, ligne ${row}`);
+    } else if (demandeurEstSup) {
       log('INFO', 'onFormSubmit',
         `Demandeur "${emailEmploye}" = supérieur du service "${service}" - ` +
         `niveau Supérieur sauté, envoi direct à la Présidence, ligne ${row}`);
+    } else if (supVide && workflow !== 'PRES') {
+      log('WARN', 'onFormSubmit',
+        `Email du supérieur vide pour le service "${service}" (congé ou ` +
+        `Config.gs incomplet) - niveau Supérieur validé par défaut, ` +
+        `envoi direct à la Présidence, ligne ${row}`);
+    } else if (supEstPresident) {
+      log('INFO', 'onFormSubmit',
+        `Supérieur du service "${service}" = président du périmètre ` +
+        `("${emailSup}") - niveau Supérieur sauté, envoi direct en ` +
+        `validation finale, ligne ${row}`);
     }
 
     let premierNiveau;
-    if (workflow === 'PRES' || demandeurEstSup) {
+    if (workflow === 'PRES' || demandeurEstSup || supVide ||
+        supEstPresident || demandeurEstPresident) {
       ecrireColonne(sheet, row, CONFIG.COL.AVIS_SUP,  'Approuvé');
       ecrireColonne(sheet, row, CONFIG.COL.TOKEN_SUP, 'INVALIDE_' + tokenSup);
       ecrireColonne(sheet, row, CONFIG.COL.AVIS_PRES, 'En attente');
